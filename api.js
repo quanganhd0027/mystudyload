@@ -160,10 +160,10 @@ async function loadWorld(profile) {
   staffRows = staffRows.map(r => r || []);
   classes.forEach((c, i) => (staffBy[c.id] = staffRows[i]));
   if (isAdmin) {
-    for (let off = 0; ; off += 500) {
-      const rows = await rpc('admin_list_users', { search_text: '', page_size: 500, page_offset: off });
+    for (let off = 0; ; off += 100) {
+      const rows = await rpc('admin_list_users', { search_text: '', page_size: 100, page_offset: off });
       (rows || []).forEach(r => put(r.user_id, { name: r.display_name || r.username, username: r.username, role: r.role, email: r.email, banned: r.is_banned }));
-      if (!rows || rows.length < 500) break;
+      if (!rows || rows.length < 100) break;
     }
   } else {
     const ros = await Promise.all(classes.map(c => rpc('get_class_roster', { target_class_id: c.id }).then(r => r || [])));
