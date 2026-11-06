@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StudyLoad — Quản lý học tập thông minh</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="authRoot"></div>
+<div class="app hidden">
+<aside class="sidebar">
+<div class="logo">Study<span>Load</span></div>
+<nav class="nav" id="nav"></nav>
+<div class="side-note"></div>
+</aside>
+<main class="main">
+<div id="netBanner" class="net-banner hidden" role="alert">Bạn đang ngoại tuyến. Thay đổi sẽ không được lưu cho tới khi có mạng.</div>
+<header class="topbar"><div><h1 id="pageTitle">Tổng quan</h1><p id="subtitle">Lập lịch hợp lý, theo dõi tiến độ và thời gian học.</p></div><div class="top-actions"><button id="profileButton" class="secondary profile-button" title="Tài khoản" aria-label="Tài khoản">👤</button><span id="saveChip" class="save-chip" role="status" aria-live="polite"></span><button id="quickAdd">+ Nhiệm vụ</button></div></header>
+<div class="content" id="content"></div>
+</main>
+</div>
+<div id="modalRoot"></div><div id="toastRoot"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script src="app.js"></script>
+<script src="pages-core.js"></script>
+<script src="pages-admin.js"></script>
+<script src="pages-class.js"></script>
+</body></html>
