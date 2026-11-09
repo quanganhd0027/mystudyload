@@ -54,9 +54,9 @@ function drawAccounts(el) {
     $('#uList').innerHTML = data.length ? `<div class="table-wrap"><table><thead><tr><th>Tên</th><th>Tài khoản / Email</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.map((u) => `<tr><td>${esc(u.display_name || '')}</td><td>${esc(u.username)}<div class="muted">${esc(u.email || '')}</div></td><td><span class="badge">${SL.roleLabel(u.role)}</span></td><td>${u.is_banned ? '<span class="badge red">Bị khóa</span>' : '<span class="badge green">Hoạt động</span>'}</td><td class="actions"><button class="small secondary" data-edit="${u.user_id}">Sửa</button> <button class="small secondary" data-role="${u.user_id}" ${u.user_id === me ? 'disabled title="Không thể tự đổi vai trò của chính mình"' : ''}>Đổi vai trò</button> <button class="small ${u.is_banned ? '' : 'danger'}" data-lock="${u.user_id}" ${u.user_id === me ? 'disabled' : ''}>${u.is_banned ? 'Mở khóa' : 'Khóa'}</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Không có tài khoản phù hợp bộ lọc.');
     pager($('#uPager'), U.page, rows.length, PAGE, (p) => { U.page = p; load(); });
     const find = (id) => rows.find((x) => x.user_id === id);
-    el.querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => editUser(find(b.dataset.edit), load)));
-    el.querySelectorAll('[data-role]').forEach((b) => (b.onclick = () => changeRole(find(b.dataset.role), load)));
-    el.querySelectorAll('[data-lock]').forEach((b) => (b.onclick = () => toggleLock(find(b.dataset.lock), load)));
+    $('#uList').querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => editUser(find(b.dataset.edit), load)));
+    $('#uList').querySelectorAll('[data-role]').forEach((b) => (b.onclick = () => changeRole(find(b.dataset.role), load)));
+    $('#uList').querySelectorAll('[data-lock]').forEach((b) => (b.onclick = () => toggleLock(find(b.dataset.lock), load)));
   });
   load();
 }
@@ -88,8 +88,8 @@ function drawRequests(el) {
     pager($('#rPager'), U.rpage, count, PAGE, (p) => { U.rpage = p; load(); });
     const decide = (id, approve) => ui.form(approve ? 'Chấp nhận yêu cầu' : 'Từ chối yêu cầu', `<label>Ghi chú (không bắt buộc)</label><textarea name="n" rows="2" maxlength="300"></textarea>`, approve ? 'Chấp nhận' : 'Từ chối',
       async (root) => { await A.rpc('admin_review_teacher_request', { target_request_id: id, decision: approve ? 'approved' : 'rejected', note: root.querySelector('[name=n]').value.trim() || null }); load(); }, approve ? 'Đã chấp nhận yêu cầu.' : 'Đã từ chối yêu cầu.');
-    el.querySelectorAll('[data-ok]').forEach((b) => (b.onclick = () => decide(b.dataset.ok, true)));
-    el.querySelectorAll('[data-no]').forEach((b) => (b.onclick = () => decide(b.dataset.no, false)));
+    $('#rList').querySelectorAll('[data-ok]').forEach((b) => (b.onclick = () => decide(b.dataset.ok, true)));
+    $('#rList').querySelectorAll('[data-no]').forEach((b) => (b.onclick = () => decide(b.dataset.no, false)));
   });
   load();
 }
@@ -167,7 +167,7 @@ SL.pages.subjects = {
     $('#snew').onclick = () => subjectForm(null, load);
     const load = () => ui.load($('#sList'), () => A.run(A.sb.from('subjects').select('*').order('name')), (rows) => {
       $('#sList').innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>Môn</th><th>Mô tả</th><th></th></tr></thead><tbody>${rows.map((s) => `<tr><td>${esc(s.name)}</td><td>${esc(s.description || '')}</td><td><button class="small secondary" data-e="${s.id}">Sửa</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Chưa có môn học nào.');
-      el.querySelectorAll('[data-e]').forEach((b) => (b.onclick = () => subjectForm(rows.find((r) => r.id === b.dataset.e), load)));
+      $('#sList').querySelectorAll('[data-e]').forEach((b) => (b.onclick = () => subjectForm(rows.find((r) => r.id === b.dataset.e), load)));
     });
     load();
   }
