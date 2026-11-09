@@ -10,8 +10,8 @@ const pager = (el, page, total, size, go) => {
   el.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => go(page + +b.dataset.p)));
 };
 const guardAdmin = (el) => { if (SL.isAdmin()) return true; el.innerHTML = '<div class="notice red"><b>Không đủ quyền.</b> Chỉ quản trị viên được xem trang này.</div>'; return false; };
-const listUsers = async (q) => { let out = []; for (let off = 0; ; off += 500) { const r = await A.rpc('admin_list_users', { search_text: q || '', page_size: 500, page_offset: off }); out = out.concat(r || []); if (!r || r.length < 500) break; } return out; };
-const userMap = async (ids) => { const m = {}; if (ids.length) (await A.rpc('admin_user_lookup', { p_ids: ids })).forEach((u) => (m[u.user_id] = u)); return m; };
+const listUsers = async (q) => { let out = []; for (let off = 0; ; off += 100) { const r = await A.rpc('admin_list_users', { search_text: q || '', page_size: 100, page_offset: off }); out = out.concat(r || []); if (!r || r.length < 100) break; } return out; };
+  const userMap = async (ids) => { const m = {}; if (ids.length) (await A.rpc('admin_user_lookup', { p_ids: ids })).forEach((u) => (m[u.user_id] = u)); return m; };
 
 /* ---------------- Tổng quan quản trị ---------------- */
 SL.adminDashboard = (el) => ui.load(el, async () => {
