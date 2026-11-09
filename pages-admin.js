@@ -11,7 +11,7 @@ const pager = (el, page, total, size, go) => {
 };
 const guardAdmin = (el) => { if (SL.isAdmin()) return true; el.innerHTML = '<div class="notice red"><b>Không đủ quyền.</b> Chỉ quản trị viên được xem trang này.</div>'; return false; };
 const listUsers = async (q) => { let out = []; for (let off = 0; ; off += 100) { const r = await A.rpc('admin_list_users', { search_text: q || '', page_size: 100, page_offset: off }); out = out.concat(r || []); if (!r || r.length < 100) break; } return out; };
-  const userMap = async (ids) => { const m = {}; if (ids.length) (await A.rpc('admin_user_lookup', { p_ids: ids })).forEach((u) => (m[u.user_id] = u)); return m; };
+const userMap = async (ids) => { const m = {}; if (ids.length) (await A.rpc('admin_user_lookup', { p_ids: ids })).forEach((u) => (m[u.user_id] = u)); return m; };
 
 /* ---------------- Tổng quan quản trị ---------------- */
 SL.adminDashboard = (el) => ui.load(el, async () => {
@@ -51,7 +51,7 @@ function drawAccounts(el) {
     return rows;
   }, (rows) => {
     const me = SL.profile().id, data = rows.slice(U.page * PAGE, U.page * PAGE + PAGE);
-    $('#uList').innerHTML = data.length ? `<div class="table-wrap"><table><thead><tr><th>Tên</th><th>Tài khoản / Email</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.map((u) => `<tr><td>${esc(u.display_name || '')}</td><td>${esc(u.username)}<div class="muted">${esc(u.email || '')}</div></td><td><span class="badge">${SL.roleLabel(u.role)}</span></td><td>${u.is_banned ? '<span class="badge red">Bị khóa</span>' : '<span class="badge green">Hoạt động</span>'}</td><td class="actions"><button class="small secondary" data-edit="${u.user_id}">Sửa</button> <button class="small secondary" data-role="${u.user_id}" ${u.user_id === me ? 'disabled' : ''}>Đổi vai trò</button> <button class="small ${u.is_banned ? '' : 'danger'}" data-lock="${u.user_id}" ${u.user_id === me ? 'disabled' : ''}>${u.is_banned ? 'Mở khóa' : 'Khóa'}</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Không có tài khoản phù hợp bộ lọc.');
+    $('#uList').innerHTML = data.length ? `<div class="table-wrap"><table><thead><tr><th>Tên</th><th>Tài khoản / Email</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.map((u) => `<tr><td>${esc(u.display_name || '')}</td><td>${esc(u.username)}<div class="muted">${esc(u.email || '')}</div></td><td><span class="badge">${SL.roleLabel(u.role)}</span></td><td>${u.is_banned ? '<span class="badge red">Bị khóa</span>' : '<span class="badge green">Hoạt động</span>'}</td><td class="actions"><button class="small secondary" data-edit="${u.user_id}">Sửa</button> <button class="small secondary" data-role="${u.user_id}" ${u.user_id === me ? 'disabled title="Không thể tự đổi vai trò của chính mình"' : ''}>Đổi vai trò</button> <button class="small ${u.is_banned ? '' : 'danger'}" data-lock="${u.user_id}" ${u.user_id === me ? 'disabled' : ''}>${u.is_banned ? 'Mở khóa' : 'Khóa'}</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Không có tài khoản phù hợp bộ lọc.');
     pager($('#uPager'), U.page, rows.length, PAGE, (p) => { U.page = p; load(); });
     const find = (id) => rows.find((x) => x.user_id === id);
     el.querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => editUser(find(b.dataset.edit), load)));
@@ -67,7 +67,7 @@ function editUser(u, reload) {
 }
 function changeRole(u, reload) {
   ui.form('Đổi vai trò', `<p>Tài khoản: <b>${esc(u.display_name || u.username)}</b> (hiện là ${SL.roleLabel(u.role)})</p><label>Vai trò mới</label><select name="r">${['student', 'teacher', 'admin'].map((r) => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${SL.roleLabel(r)}</option>`).join('')}</select>`, 'Đổi vai trò',
-    async (root) => { const r = root.querySelector('[name=r]').value; if (r === u.role) return false; await A.rpc('admin_set_user_role', { target_user_id: u.user_id, new_role: r }); reload(); }, 'Đã đổi vai trò.');
+    async (root) => { const r = root.querySelector('[name=r]').value; if (r === u.role) throw new Error('Tài khoản đang có vai trò này. Hãy chọn vai trò khác.'); await A.rpc('admin_set_user_role', { target_user_id: u.user_id, new_role: r }); reload(); }, 'Đã đổi vai trò.');
 }
 function toggleLock(u, reload) {
   const lock = !u.is_banned;
