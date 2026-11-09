@@ -217,7 +217,13 @@
   function buildNav() {
     const items = [["dashboard", "◫ Tổng quan"], ["tasks", "☷ Nhiệm vụ"], ["calendar", "▦ Lịch cá nhân"], ["classes", "♧ Lớp học & dự án"],
       ["classmgmt", "⚑ Quản lý lớp"], ["library", "▤ Thư viện"], ["reports", "◷ Báo cáo"], ["notifications", "✉ Thông báo"], ["profile", "☺ Hồ sơ"]];
-    if (isAdmin()) items.splice(5, 0, ["users", "☰ Người dùng"], ["adminclasses", "⌂ Lớp học (Admin)"], ["subjects", "✎ Môn học"], ["audit", "⛨ Nhật ký kiểm toán"]);
+    if (isAdmin()) {
+      // Quản trị viên không học: bỏ Nhiệm vụ, Lịch cá nhân, Lớp học & dự án, Thư viện (và Quản lý lớp của giáo viên – đã có "Lớp học (Admin)")
+      const hide = new Set(["tasks", "calendar", "classes", "classmgmt", "library"]);
+      items.splice(0, items.length, ...items.filter(([p]) => !hide.has(p)));
+      items.splice(1, 0, ["users", "☰ Người dùng"], ["adminclasses", "⌂ Lớp học (Admin)"], ["subjects", "✎ Môn học"], ["audit", "⛨ Nhật ký kiểm toán"]);
+      const qa = $("#quickAdd"); if (qa) qa.classList.add("hidden");
+    } else { const qa = $("#quickAdd"); if (qa) qa.classList.remove("hidden"); }
     items.push(["settings", "⚙ Cài đặt"]);
     $("#nav").innerHTML = items.map(([p, l]) => `<button data-page="${p}">${l}</button>`).join("");
   }
