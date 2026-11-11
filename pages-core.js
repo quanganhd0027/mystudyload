@@ -57,11 +57,11 @@ function openRequestForm(done) {
     }, 'Đã gửi yêu cầu, đang chờ quản trị viên duyệt.');
 }
 
-/* ---------------- Giao bài cho cả lớp (giáo viên bộ môn / lớp phó học tập / admin) ---------------- */
+/* ---------------- Giao bài cho cả lớp (giáo viên bộ môn / cán bộ lớp / admin) ---------------- */
 async function assignContext(classId) { // trả về {source, subjects} theo quyền thật; máy chủ vẫn kiểm tra lại bằng RLS
   const me = SL.current(), all = SL.subjects();
   if (SL.isAdmin()) return { source: 'admin', subjects: all };
-  const isVp = await A.rpc('has_class_officer_role', { target_class_id: classId, target_role: 'academic_vp' });
+  const isVp = await A.rpc('has_main_officer_role', { target_class_id: classId });
   if (isVp) return { source: 'academic_vp', subjects: all };
   const rows = await A.run(A.sb.from('class_subject_teachers').select('subject_id').eq('class_id', classId).eq('teacher_id', me.id));
   const ids = new Set(rows.map((r) => r.subject_id));
