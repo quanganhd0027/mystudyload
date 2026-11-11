@@ -31,12 +31,12 @@ async function loadCtx(cls) {
   const delegated = activeDeleg.filter((d) => d.delegated_to === me).map((d) => d.officer_role);
   const roles = [...new Set([...direct, ...delegated])], has = (...r) => r.some((x) => roles.includes(x));
   const adm = SL.isAdmin(), home = cls.homeroomId === me, tch = cls.teacherIds.includes(me);
-  const isOfficer = direct.some((r) => MAIN.includes(r));
+  const isOfficer = direct.some((r) => r === 'class_president' || r === 'academic_vp');
   const lead = officers.some((o) => o.role === 'team_leader' && o.user_id === me);
   const perms = { adm, home, tch, roles, direct, isOfficer, stats: adm || home || tch || isOfficer, manageMembers: adm || home, manageTeams: adm || home || has('class_president'), assignOfficers: adm || home,
     createOT: adm || home || roles.length > 0, manageDuty: adm || home || has('labor_vp'), postAnn: adm || home || isOfficer,
-    viewReports: adm || home || has('class_president'), editReports: adm || home || has('class_president'),
-    assign: adm || has('academic_vp') || tch, delegate: adm || home || direct.length > 0, lead };
+    viewReports: adm || home || isOfficer, editReports: adm || home || isOfficer,
+    assign: adm || isOfficer || tch, delegate: adm || home || direct.length > 0, lead };
   return { cls, members, teams, tmembers, officers, delegs: delegs || [], names, codes, perms, me };
 }
 const nm = (c, id) => esc(c.names[id] || '(không rõ)');
@@ -341,5 +341,64 @@ TABS.deleg = (el, c, refresh) => {
       await A.rpc('delegate_class_officer', { p_officer_role_id: v.o, p_delegated_to: v.u, p_starts_at: toIso(v.s), p_ends_at: toIso(v.e), p_reason: v.r.trim() || null }); refresh(); }, 'Đã ủy quyền.'));
   el.querySelectorAll('[data-rv]').forEach((b) => (b.onclick = async () => { if (!confirm('Thu hồi ủy quyền này?')) return; b.disabled = true;
     try { await A.rpc('revoke_officer_delegation', { p_delegation_id: b.dataset.rv }); SL.toast('Đã thu hồi.'); refresh(); } catch (e) { SL.toast(A.toApiError(e).message); b.disabled = false; } }));
+};
+
+/* ---------------- Trang Dữ liệu (admin / giáo viên / cán bộ lớp) ---------------- */
+const DH = { classId: '', week: null, thr: 240 };
+const mondayOf = (d) => { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+const dayStr = (d) => SL.localDay(d);
+const WD = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+async function myDataClasses() {
+  const me = SL.current(), all = SL.state().classes;
+  if (SL.isAdmin()) return all;
+  let ids = new Set(all.filter((c) => c.homeroomId === me.id || (c.teacherIds || []).includes(me.id)).map((c) => c.id));
+  try { (await A.run(A.sb.from('class_officer_roles').select('class_id,role').eq('user_id', me.id).is('ended_at', null).in('role', ['class_president', 'academic_vp']))).forEach((r) => ids.add(r.class_id)); } catch (e) { /* bỏ qua */ }
+  return all.filter((c) => ids.has(c.id));
+}
+const csvCell = (v) => { const t = String(v ?? ''); return /[",\n;]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+const csvOf = (rows) => '﻿' + rows.map((r) => r.map(csvCell).join(',')).join('\r\n');
+function downloadCsv(name, text) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+const bar = (label, value, max, color, note) => `<div class="dh-row"><span class="dh-lb">${label}</span><span class="dh-track"><span class="dh-fill" style="width:${max ? Math.max(value ? 2 : 0, Math.round((100 * value) / max)) : 0}%;background:${color}"></span></span><span class="dh-val">${note}</span></div>`;
+SL.pages.datahub = {
+  title: 'Dữ liệu', sub: 'Biểu đồ học tập, quá tải và bài về nhà — kèm xuất file dữ liệu.',
+  async render(el) {
+    el.innerHTML = ui.skeleton ? ui.skeleton() : 'Đang tải…';
+    const classes = await myDataClasses();
+    if (!classes.length && !SL.isAdmin()) { el.innerHTML = '<div class="notice red"><b>Không đủ quyền.</b> Trang này dành cho quản trị viên, giáo viên và cán bộ lớp.</div>'; return; }
+    if (!DH.week) DH.week = mondayOf(new Date());
+    if (!SL.isAdmin() && !classes.some((c) => c.id === DH.classId)) DH.classId = classes[0].id;
+    const draw = () => {
+      const ws = dayStr(DH.week), we = new Date(DH.week); we.setDate(we.getDate() + 6);
+      el.innerHTML = `<div class="toolbar dh-bar"><select id="dhc">${SL.isAdmin() ? '<option value="">Toàn hệ thống</option>' : ''}${classes.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select><span class="dh-week"><button class="small secondary" id="dhp" aria-label="Tuần trước">‹</button><b>${ws.slice(5)} → ${dayStr(we).slice(5)}</b><button class="small secondary" id="dhn" aria-label="Tuần sau">›</button></span><label class="muted" style="display:flex;align-items:center;gap:6px">Quá tải khi còn &gt; <input id="dht" type="number" min="30" max="1440" step="30" value="${DH.thr}" style="width:84px"> phút</label></div><div id="dhBody"></div>`;
+      $('#dhc').value = DH.classId;
+      $('#dhc').onchange = (e) => { DH.classId = e.target.value; draw(); };
+      $('#dhp').onclick = () => { DH.week.setDate(DH.week.getDate() - 7); draw(); };
+      $('#dhn').onclick = () => { DH.week.setDate(DH.week.getDate() + 7); draw(); };
+      $('#dht').onchange = (e) => { DH.thr = Math.min(1440, Math.max(30, +e.target.value || 240)); draw(); };
+      ui.load($('#dhBody'), () => A.rpc('get_analytics', { p_class_id: DH.classId || null, p_week_start: ws, p_overload_minutes: DH.thr }), (d) => {
+        const maxMin = Math.max(1, ...d.daily.map((x) => x.minutes)), hw = d.homework, n = d.students || 0, hwMax = Math.max(1, n);
+        const best = d.daily.reduce((a, x) => (x.minutes > a.minutes ? x : a), d.daily[0]), low = d.daily.reduce((a, x) => (x.minutes < a.minutes ? x : a), d.daily[0]);
+        const total = d.daily.reduce((a, x) => a + x.minutes, 0);
+        $('#dhBody').innerHTML = `<div class="grid">
+          <div class="card span-4"><div class="stat-label">Số học sinh</div><div class="stat">${n}</div></div>
+          <div class="card span-4"><div class="stat-label">Học sinh quá tải</div><div class="stat">${d.overload.count} <span class="muted" style="font-size:16px">(${d.overload.pct}%)</span></div></div>
+          <div class="card span-4"><div class="stat-label">Tổng thời gian học tuần này</div><div class="stat">${Math.round(total / 60 * 10) / 10} giờ</div></div>
+          <div class="card span-12"><h2>Biểu đồ tuần: ngày nào học nhiều / ít</h2>${total ? `<p class="muted">Nhiều nhất: <b>${WD[d.daily.indexOf(best)]}</b> (${best.minutes} phút) · Ít nhất: <b>${WD[d.daily.indexOf(low)]}</b> (${low.minutes} phút)</p>` : '<p class="muted">Tuần này chưa có thời gian học nào được ghi nhận.</p>'}
+            ${d.daily.map((x, i) => bar(`${WD[i]} ${x.day.slice(8)}/${x.day.slice(5, 7)}`, x.minutes, maxMin, 'var(--brand)', `${x.minutes} phút · ${x.active} học sinh`)).join('')}</div>
+          <div class="card span-6"><h2>Biểu đồ quá tải</h2><p class="muted">Quá tải = còn hơn ${d.threshold} phút bài chưa xong đến hạn trong 3 ngày tới (hoặc đã quá hạn).</p>
+            ${bar('Quá tải', d.overload.count, hwMax, 'var(--red)', `${d.overload.count}/${n} học sinh · ${d.overload.pct}%`)}${bar('Bình thường', n - d.overload.count, hwMax, 'var(--green)', `${n - d.overload.count}/${n}`)}
+            <p class="muted">Tổng khối lượng còn lại: <b>${d.overload.total_remaining}</b> phút.</p></div>
+          <div class="card span-6"><h2>Bài về nhà</h2>
+            ${bar('Quá hạn', hw.overdue, hwMax, 'var(--red)', `${hw.overdue} học sinh`)}${bar('Làm đủ bài', hw.all_done, hwMax, 'var(--green)', `${hw.all_done} học sinh`)}${bar('Đang làm', hw.in_progress, hwMax, 'var(--amber)', `${hw.in_progress} học sinh`)}${bar('Chưa có bài', hw.no_assignments, hwMax, 'var(--line)', `${hw.no_assignments} học sinh`)}</div>
+          <div class="card span-12"><div class="section-head"><h2>Chi tiết từng học sinh</h2><div><button class="small" id="dhx1">Xuất CSV học sinh</button> <button class="small secondary" id="dhx2">Xuất CSV theo ngày</button></div></div>
+            ${d.per_student.length ? `<div class="table-wrap"><table><thead><tr><th>Học sinh</th><th>Mã HS</th><th>Học tuần này (phút)</th><th>Còn lại (phút)</th><th>Bài giao</th><th>Đã xong</th><th>Quá hạn</th><th></th></tr></thead><tbody>${d.per_student.map((s) => `<tr><td>${esc(s.name)}</td><td>${esc(s.code || '')}</td><td>${s.week_minutes}</td><td>${s.remaining_minutes}</td><td>${s.assigned}</td><td>${s.done}</td><td>${s.overdue}</td><td>${s.overloaded ? '<span class="badge red">Quá tải</span>' : ''}</td></tr>`).join('')}</tbody></table></div>` : ui.empty('Chưa có học sinh nào.')}</div></div>`;
+        const cname = (classes.find((c) => c.id === DH.classId)?.name || 'he-thong').replace(/[^\w\-]+/g, '_'), tag = `${cname}-${ws}`;
+        const exp = async (kind, rows, file) => { try { await A.rpc('log_data_export', { p_class_id: DH.classId || null, p_kind: kind }); } catch (e) { return SL.toast(A.toApiError(e).message); } downloadCsv(file, csvOf(rows)); };
+        $('#dhx1').onclick = () => exp('students', [['Học sinh', 'Mã HS', 'Học tuần này (phút)', 'Còn lại (phút)', 'Bài giao', 'Đã xong', 'Quá hạn', 'Quá tải'], ...d.per_student.map((s) => [s.name, s.code, s.week_minutes, s.remaining_minutes, s.assigned, s.done, s.overdue, s.overloaded ? 'có' : 'không'])], `du-lieu-hoc-sinh-${tag}.csv`);
+        $('#dhx2').onclick = () => exp('daily', [['Ngày', 'Phút học', 'Số học sinh có học'], ...d.daily.map((x) => [x.day, x.minutes, x.active])], `du-lieu-theo-ngay-${tag}.csv`);
+      });
+    };
+    draw();
+  }
 };
 })();
