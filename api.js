@@ -63,7 +63,8 @@ const auth = {
     try {
       r = await sb.auth.signUp({ email: f.email, password: f.password, options: {
         emailRedirectTo: location.origin + location.pathname,
-        data: { username: f.username, display_name: f.displayName.trim(), student_id: (f.studentCode || '').trim(), class_name: (f.className || '').trim() } } });
+        data: { username: f.username, display_name: f.displayName.trim(), student_id: (f.studentCode || '').trim(), class_name: (f.className || '').trim(),
+          ...(f.wantTeacher ? { teacher_signup: 'true', phone: (f.phone || '').replace(/[\s.\-()]/g, '') } : {}) } } });
     } catch (e) { throw toApiError(e); }
     if (r.error) {
       if (/already|registered/i.test(r.error.message)) throw new ApiError('conflict', 'Email đã tồn tại.');
@@ -73,6 +74,7 @@ const auth = {
     if (r.data.user && r.data.user.identities && r.data.user.identities.length === 0) throw new ApiError('conflict', 'Email đã tồn tại.');
     return r.data.session ? 'signed_in' : 'confirm_email';
   },
+  validPhone: (p) => /^(\+?84|0)[0-9]{8,10}$/.test(p || ''),
   validateTeacher(f) {
     const e = {};
     if (!f.displayName.trim()) e.displayName = 'Họ tên không được để trống.';
