@@ -111,7 +111,7 @@
   function showSetup() {
     authShell(`<h2>Chưa kết nối Supabase</h2><div class="notice">Mở file <b>config.js</b> và điền <b>supabaseUrl</b> + <b>supabaseAnonKey</b> (Supabase → Project Settings → API). Xem HUONG_DAN_SUPABASE.md.</div><p class="auth-legal">Không dán khóa service_role vào giao diện.</p>`);
   }
-  const authTabs = (mode) => `<div class="auth-tabs three">${[["login", "Đăng nhập"], ["register", "Đăng kí"], ["teacher", "Giáo viên"]].map(([k, l]) => `<button type="button" data-auth-mode="${k}" class="${mode === k ? "selected" : ""}">${l}</button>`).join("")}</div>`;
+  const authTabs = (mode) => `<div class="auth-tabs">${[["login", "Đăng nhập"], ["register", "Đăng kí"]].map(([k, l]) => `<button type="button" data-auth-mode="${k}" class="${mode === k ? "selected" : ""}">${l}</button>`).join("")}</div>`;
   function showTeacherAuth(message = "", v = {}) {
     const val = (k) => esc(v[k] || "");
     authShell(`${authTabs("teacher")}<h2>Đăng ký giáo viên</h2><p class="muted">Điền thông tin để gửi yêu cầu tạo tài khoản giáo viên. Quản trị viên sẽ duyệt; trong lúc chờ bạn đăng nhập như học sinh.</p>${message ? `<div class="notice ${/^Lỗi/.test(message) ? "red" : "green"}" role="alert">${esc(message)}</div>` : ""}<form id="authForm" novalidate><label for="tName">Họ và tên *</label><input id="tName" name="displayName" required maxlength="60" autocomplete="name" value="${val("displayName")}"><label for="tEmail">Email *</label><input id="tEmail" name="email" type="email" required autocomplete="email" value="${val("email")}"><label for="tPhone">Số điện thoại *</label><input id="tPhone" name="phone" type="tel" required maxlength="20" autocomplete="tel" placeholder="vd: 0912345678" value="${val("phone")}"><label for="authPassword">Mật khẩu *</label><input id="authPassword" name="password" type="password" required minlength="8" autocomplete="new-password" placeholder="Ít nhất 8 ký tự"><label class="checkrow"><input type="checkbox" id="tShow"> Hiện mật khẩu</label><button class="auth-submit" type="submit">Gửi đăng ký giáo viên</button><p class="auth-hint">Sau khi được duyệt, đăng nhập bằng email và mật khẩu ở tab Đăng nhập.</p></form>`);
@@ -136,10 +136,11 @@
     if (!A.configured) return showSetup();
     if (mode === "teacher") return showTeacherAuth(message, v);
     const register = mode === "register", val = (k) => esc(v[k] || "");
-    authShell(`${authTabs(mode)}<h2>${register ? "Tạo tài khoản mới" : "Chào mừng bạn quay lại"}</h2><p class="muted">${register ? "Điền thông tin để bắt đầu sử dụng StudyLoad." : "Nhập mã học sinh hoặc số điện thoại (giáo viên) và mật khẩu."}</p>${message ? `<div class="notice ${/^Lỗi/.test(message) ? "red" : "green"}" role="alert">${esc(message)}</div>` : ""}${register && v.dupCode ? '<button type="button" class="secondary" id="codeReportBtn" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}<form id="authForm" novalidate>${register ? `<label for="authName">Họ tên / tên hiển thị *</label><input id="authName" name="displayName" required maxlength="60" autocomplete="name" value="${val("displayName")}"><label for="authUser">Tên tài khoản * <span class="muted">(3–30 ký tự: chữ thường, số, _)</span></label><input id="authUser" name="username" required maxlength="30" autocomplete="username" placeholder="vd: linh_nguyen" value="${val("username")}"><label for="authCode">Mã học sinh (nếu có)</label><input id="authCode" name="studentCode" maxlength="40" value="${val("studentCode")}"><label for="authClass">Lớp (nếu có)</label><input id="authClass" name="className" maxlength="40" value="${val("className")}"><label for="authEmail">Email *</label><input id="authEmail" name="email" type="email" required autocomplete="email" value="${val("email")}">` : `<label for="authLogin">Mã học sinh hoặc số điện thoại</label><input id="authLogin" name="login" required autocomplete="username" placeholder="Học sinh: mã HS · Giáo viên: số điện thoại" value="${val("login")}"><p class="auth-hint">Cũng có thể dùng tên tài khoản hoặc email.</p>`}<label for="authPassword">Mật khẩu *</label><input id="authPassword" name="password" type="password" required minlength="8" autocomplete="${register ? "new-password" : "current-password"}" placeholder="Ít nhất 8 ký tự">${register ? '<label for="authConfirm">Xác nhận mật khẩu *</label><input id="authConfirm" name="confirm" type="password" required autocomplete="new-password"><p class="auth-hint">Tài khoản mới mặc định là học sinh. Quyền giáo viên do quản trị viên duyệt.</p>' : ""}<button class="auth-submit" type="submit">${register ? "Tạo tài khoản" : "Đăng nhập"}</button></form>`);
+    authShell(`${authTabs(mode)}<h2>${register ? "Tạo tài khoản mới" : "Chào mừng bạn quay lại"}</h2><p class="muted">${register ? "Điền thông tin để bắt đầu sử dụng StudyLoad." : "Nhập mã học sinh hoặc số điện thoại (giáo viên) và mật khẩu."}</p>${message ? `<div class="notice ${/^Lỗi/.test(message) ? "red" : "green"}" role="alert">${esc(message)}</div>` : ""}${register && v.dupCode ? '<button type="button" class="secondary" id="codeReportBtn" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}<form id="authForm" novalidate>${register ? `<label for="authName">Họ tên / tên hiển thị *</label><input id="authName" name="displayName" required maxlength="60" autocomplete="name" value="${val("displayName")}"><label for="authUser">Tên tài khoản * <span class="muted">(3–30 ký tự: chữ thường, số, _)</span></label><input id="authUser" name="username" required maxlength="30" autocomplete="username" placeholder="vd: linh_nguyen" value="${val("username")}"><label for="authCode">Mã học sinh (nếu có)</label><input id="authCode" name="studentCode" maxlength="40" value="${val("studentCode")}"><label for="authClass">Lớp (nếu có)</label><input id="authClass" name="className" maxlength="40" value="${val("className")}"><label for="authEmail">Email *</label><input id="authEmail" name="email" type="email" required autocomplete="email" value="${val("email")}">` : `<label for="authLogin">Mã học sinh hoặc số điện thoại</label><input id="authLogin" name="login" required autocomplete="username" placeholder="Học sinh: mã HS · Giáo viên: số điện thoại" value="${val("login")}"><p class="auth-hint">Cũng có thể dùng tên tài khoản hoặc email.</p>`}<label for="authPassword">Mật khẩu *</label><input id="authPassword" name="password" type="password" required minlength="8" autocomplete="${register ? "new-password" : "current-password"}" placeholder="Ít nhất 8 ký tự">${register ? '<label for="authConfirm">Xác nhận mật khẩu *</label><input id="authConfirm" name="confirm" type="password" required autocomplete="new-password"><p class="auth-hint">Tài khoản mới mặc định là học sinh. Quyền giáo viên do quản trị viên duyệt.</p>' : ""}<label class="checkrow" style="margin-top:14px;font-size:13px"><input type="checkbox" id="wantTeacher" name="wantTeacher" ${v.wantTeacher ? "checked" : ""}> Yêu cầu quyền giáo viên</label><div id="tPhoneBox" class="${v.wantTeacher ? "" : "hidden"}"><label for="tPhone2">Số điện thoại * <span class="muted">(để quản trị viên liên hệ)</span></label><input id="tPhone2" name="phone" type="tel" maxlength="20" autocomplete="tel" placeholder="vd: 0912345678" value="${val("phone")}"></div><button class="auth-submit" type="submit">${register ? "Tạo tài khoản" : "Đăng nhập"}</button></form>`);
     $("#authRoot").querySelectorAll("[data-auth-mode]").forEach((b) => (b.onclick = () => showAuth(b.dataset.authMode)));
     $("#authForm").onsubmit = register ? registerAccount : loginAccount;
     const rb = $("#codeReportBtn"); if (rb) rb.onclick = () => showCodeReport(v);
+    $("#wantTeacher").onchange = (e) => $("#tPhoneBox").classList.toggle("hidden", !e.target.checked);
   }
   function showCodeReport(v = {}, message = "") {
     const val = (k) => esc(v[k] || "");
@@ -171,6 +172,7 @@
     v.confirm = String(raw.get("confirm") || "");
     v.username = (v.username || "").toLowerCase();
     const errs = A.auth.validateRegister(v);
+    if (v.wantTeacher && !A.auth.validPhone((v.phone || "").replace(/[\s.\-()]/g, ""))) errs.phone = "Số điện thoại không hợp lệ (để yêu cầu quyền giáo viên).";
     if (Object.keys(errs).length) return showAuth("register", "Lỗi: " + Object.values(errs).join(" "), v);
     if (v.studentCode) {
       try { if (!(await A.rpc("student_code_available", { p_code: v.studentCode }))) return showAuth("register", "Lỗi: Mã học sinh này đã có tài khoản sử dụng.", { ...v, dupCode: "1" }); }
@@ -189,9 +191,21 @@
     e.preventDefault();
     const form = e.currentTarget, v = formVals(form), pw = String(new FormData(form).get("password") || "");
     if (!v.login || pw.length < 8) return showAuth("login", "Lỗi: Nhập mã học sinh/số điện thoại và mật khẩu (tối thiểu 8 ký tự).", v);
+    const want = !!v.wantTeacher, phone = (v.phone || "").replace(/[\s.\-()]/g, "");
+    if (want && !A.auth.validPhone(phone)) return showAuth("login", "Lỗi: Số điện thoại không hợp lệ (để yêu cầu quyền giáo viên).", { login: v.login, wantTeacher: "1", phone: v.phone });
     busy(form, true);
-    try { await enterApp(await A.auth.signIn(v.login, pw)); }
-    catch (err) { showAuth("login", "Lỗi: " + A.toApiError(err).message, { login: v.login }); }
+    let profile;
+    try { profile = await A.auth.signIn(v.login, pw); }
+    catch (err) { return showAuth("login", "Lỗi: " + A.toApiError(err).message, { login: v.login, wantTeacher: want ? "1" : "", phone: v.phone }); }
+    let note = "";
+    if (want) {
+      try {
+        const r = await A.rpc("request_teacher_role", { p_phone: phone, p_message: "Yêu cầu khi đăng nhập" });
+        note = r === "sent" ? "Đã gửi yêu cầu quyền giáo viên, vui lòng chờ quản trị viên duyệt." : r === "pending" ? "Yêu cầu quyền giáo viên của bạn đang chờ duyệt." : "Tài khoản này đã có quyền giáo viên.";
+      } catch (e) { note = "Chưa gửi được yêu cầu quyền giáo viên: " + A.toApiError(e).message; }
+    }
+    await enterApp(profile);
+    if (note) showToast(note);
   }
   function applyWorld(w, profile) {
     state = Object.assign(emptyState(), { users: w.users, currentUserId: profile.id, tasks: w.tasks, busy: w.busy, classes: w.classes,
