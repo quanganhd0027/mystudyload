@@ -136,7 +136,7 @@
     if (!A.configured) return showSetup();
     if (mode === "teacher") return showTeacherAuth(message, v);
     const register = mode === "register", val = (k) => esc(v[k] || "");
-    authShell(`${authTabs(mode)}<h2>${register ? "Tạo tài khoản mới" : "Chào mừng bạn quay lại"}</h2><p class="muted">${register ? "Điền thông tin để bắt đầu sử dụng StudyLoad." : "Nhập mã học sinh hoặc số điện thoại (giáo viên) và mật khẩu."}</p>${message ? `<div class="notice ${/^Lỗi/.test(message) ? "red" : "green"}" role="alert">${esc(message)}</div>` : ""}${register && v.dupCode ? '<button type="button" class="secondary" id="codeReportBtn" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}<form id="authForm" novalidate>${register ? `<label for="authName">Họ tên / tên hiển thị *</label><input id="authName" name="displayName" required maxlength="60" autocomplete="name" value="${val("displayName")}"><label for="authUser">Tên tài khoản * <span class="muted">(3–30 ký tự: chữ thường, số, _)</span></label><input id="authUser" name="username" required maxlength="30" autocomplete="username" placeholder="vd: linh_nguyen" value="${val("username")}"><label for="authCode">Mã học sinh (nếu có)</label><input id="authCode" name="studentCode" maxlength="40" value="${val("studentCode")}"><label for="authClass">Lớp (nếu có)</label><input id="authClass" name="className" maxlength="40" value="${val("className")}"><label for="authEmail">Email *</label><input id="authEmail" name="email" type="email" required autocomplete="email" value="${val("email")}">` : `<label for="authLogin">Mã học sinh hoặc số điện thoại</label><input id="authLogin" name="login" required autocomplete="username" placeholder="Học sinh: mã HS · Giáo viên: số điện thoại" value="${val("login")}"><p class="auth-hint">Cũng có thể dùng tên tài khoản hoặc email.</p>`}<label for="authPassword">Mật khẩu *</label><input id="authPassword" name="password" type="password" required minlength="8" autocomplete="${register ? "new-password" : "current-password"}" placeholder="Ít nhất 8 ký tự">${register ? '<label for="authConfirm">Xác nhận mật khẩu *</label><input id="authConfirm" name="confirm" type="password" required autocomplete="new-password"><p class="auth-hint">Tài khoản mới mặc định là học sinh. Quyền giáo viên do quản trị viên duyệt.</p>' : ""}<label class="checkrow" style="margin-top:14px;font-size:13px"><input type="checkbox" id="wantTeacher" name="wantTeacher" ${v.wantTeacher ? "checked" : ""}> Yêu cầu quyền giáo viên</label><div id="tPhoneBox" class="${v.wantTeacher ? "" : "hidden"}"><label for="tPhone2">Số điện thoại * <span class="muted">(để quản trị viên liên hệ)</span></label><input id="tPhone2" name="phone" type="tel" maxlength="20" autocomplete="tel" placeholder="vd: 0912345678" value="${val("phone")}"></div><button class="auth-submit" type="submit">${register ? "Tạo tài khoản" : "Đăng nhập"}</button></form>`);
+    authShell(`${authTabs(mode)}<h2>${register ? "Tạo tài khoản mới" : "Chào mừng bạn quay lại"}</h2><p class="muted">${register ? "Điền thông tin để bắt đầu sử dụng StudyLoad." : "Nhập mã học sinh hoặc số điện thoại (giáo viên) và mật khẩu."}</p>${message ? `<div class="notice ${/^Lỗi/.test(message) ? "red" : "green"}" role="alert">${esc(message)}</div>` : ""}${register && v.dupCode ? '<button type="button" class="secondary" id="codeReportBtn" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}<form id="authForm" novalidate>${register ? `<label for="authName">Họ và tên *</label><input id="authName" name="displayName" required maxlength="60" autocomplete="name" value="${val("displayName")}"><label for="authIdent">Mã học sinh hoặc số điện thoại *</label><input id="authIdent" name="ident" required maxlength="40" autocomplete="username" placeholder="Học sinh: mã HS · Giáo viên: số điện thoại" value="${val("ident")}"><p class="auth-hint">Đây là thông tin bạn dùng để đăng nhập.</p><label for="authClass">Lớp (nếu có)</label><input id="authClass" name="className" maxlength="40" value="${val("className")}">` : `<label for="authLogin">Mã học sinh hoặc số điện thoại</label><input id="authLogin" name="login" required autocomplete="username" placeholder="Học sinh: mã HS · Giáo viên: số điện thoại" value="${val("login")}"><p class="auth-hint">Tài khoản cũ vẫn có thể dùng tên tài khoản hoặc email.</p>`}<label for="authPassword">Mật khẩu *</label><input id="authPassword" name="password" type="password" required minlength="8" autocomplete="${register ? "new-password" : "current-password"}" placeholder="Ít nhất 8 ký tự">${register ? '<label for="authConfirm">Xác nhận mật khẩu *</label><input id="authConfirm" name="confirm" type="password" required autocomplete="new-password"><p class="auth-hint">Tài khoản mới mặc định là học sinh. Quyền giáo viên do quản trị viên duyệt.</p>' : ""}<label class="checkrow" style="margin-top:14px;font-size:13px"><input type="checkbox" id="wantTeacher" name="wantTeacher" ${v.wantTeacher ? "checked" : ""}> Yêu cầu quyền giáo viên</label><div id="tPhoneBox" class="${v.wantTeacher ? "" : "hidden"}"><label for="tPhone2">Số điện thoại * <span class="muted">(để quản trị viên liên hệ${register ? "; bỏ trống nếu ô trên đã là số điện thoại" : ""})</span></label><input id="tPhone2" name="phone" type="tel" maxlength="20" autocomplete="tel" placeholder="vd: 0912345678" value="${val("phone")}"></div><button class="auth-submit" type="submit">${register ? "Tạo tài khoản" : "Đăng nhập"}</button></form>`);
     $("#authRoot").querySelectorAll("[data-auth-mode]").forEach((b) => (b.onclick = () => showAuth(b.dataset.authMode)));
     $("#authForm").onsubmit = register ? registerAccount : loginAccount;
     const rb = $("#codeReportBtn"); if (rb) rb.onclick = () => showCodeReport(v);
@@ -170,19 +170,19 @@
     const form = e.currentTarget, raw = new FormData(form), v = formVals(form);
     v.password = String(raw.get("password") || "");
     v.confirm = String(raw.get("confirm") || "");
-    v.username = (v.username || "").toLowerCase();
     const errs = A.auth.validateRegister(v);
-    if (v.wantTeacher && !A.auth.validPhone((v.phone || "").replace(/[\s.\-()]/g, ""))) errs.phone = "Số điện thoại không hợp lệ (để yêu cầu quyền giáo viên).";
+    const id = A.auth.parseIdent(v.ident);
+    if (v.wantTeacher && id.kind !== "phone" && !A.auth.validPhone((v.phone || "").replace(/[\s.\-()]/g, ""))) errs.phone = "Hãy nhập số điện thoại hợp lệ để yêu cầu quyền giáo viên.";
     if (Object.keys(errs).length) return showAuth("register", "Lỗi: " + Object.values(errs).join(" "), v);
-    if (v.studentCode) {
-      try { if (!(await A.rpc("student_code_available", { p_code: v.studentCode }))) return showAuth("register", "Lỗi: Mã học sinh này đã có tài khoản sử dụng.", { ...v, dupCode: "1" }); }
+    if (id.kind === "code") {
+      try { if (!(await A.rpc("student_code_available", { p_code: id.value }))) return showAuth("register", "Lỗi: Mã học sinh này đã có tài khoản sử dụng.", { ...v, studentCode: id.value, dupCode: "1" }); }
       catch (err) { return showAuth("register", "Lỗi: " + A.toApiError(err).message, v); }
     }
     busy(form, true);
     try {
       const r = await A.auth.signUp(v);
       if (r === "signed_in") return bootAuth();
-      showAuth("login", "Đăng ký thành công. Hãy mở email để xác nhận tài khoản rồi đăng nhập.", { login: v.username });
+      showAuth("login", "Đăng ký thành công. Hãy đăng nhập.", { login: id.value });
     } catch (err) {
       showAuth("register", "Lỗi: " + A.toApiError(err).message, { ...v, password: "", confirm: "" });
     }
@@ -234,6 +234,11 @@
   /* Sau khi đăng nhập: (1) nếu mã HS bị gỡ thì bắt nhập lại; (2) báo "mã học sinh của bạn đã được lấy lại" */
   async function afterLoginChecks(profile) {
     try {
+      if (profile.role === "admin") {
+        const n = await A.rpc("admin_code_report_count");
+        if (n > 0) showToast(`Có ${n} yêu cầu "mã học sinh bị trùng" đang chờ bạn xử lý (Người dùng → Mã HS bị trùng).`);
+        return;
+      }
       if (await A.rpc("my_code_prompt")) return codeGate(profile);
       if (profile.role === "student" && (await A.rpc("consume_code_recovery_notice"))) {
         showToast("Mã học sinh của bạn đã được lấy lại.");
