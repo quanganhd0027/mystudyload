@@ -15,50 +15,62 @@ const userMap = async (ids) => { const m = {}; if (ids.length) (await A.rpc('adm
 
 /* ---------------- Tổng quan quản trị ---------------- */
 SL.adminDashboard = (el) => ui.load(el, async () => {
-  const [st, logs] = await Promise.all([A.rpc('admin_stats'), A.run(A.sb.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(8))]);
-  return { st, logs };
-}, ({ st, logs }) => {
+  const [st, logs, codes] = await Promise.all([A.rpc('admin_stats'), A.run(A.sb.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(8)), A.rpc('admin_code_report_count').catch(() => 0)]);
+  return { st, logs, codes };
+}, ({ st, logs, codes }) => {
   const card = (n, l, go) => `<div class="card span-3"><div class="stat-label">${l}</div><div class="stat">${n}</div>${go ? `<button class="small secondary" data-goto="${go}">Xem</button>` : ''}</div>`;
-  el.innerHTML = `<div class="grid">${card(st.accounts, 'Tổng tài khoản', 'users')}${card(st.students, 'Học sinh')}${card(st.teachers, 'Giáo viên')}${card(st.admins, 'Quản trị viên')}
-    ${card(st.banned, 'Tài khoản bị khóa', 'users')}${card(st.classes, 'Lớp học', 'adminclasses')}${card(st.subjects, 'Môn học', 'subjects')}${card(st.pending_requests, 'Yêu cầu giáo viên chờ duyệt', 'users')}
+  el.innerHTML = `<div class="grid">${card(st.accounts, 'Tổng tài khoản', 'users:accounts')}${card(st.students, 'Học sinh')}${card(st.teachers, 'Giáo viên')}${card(st.admins, 'Quản trị viên')}
+    ${card(st.banned, 'Tài khoản bị khóa', 'users:accounts')}${card(st.classes, 'Lớp học', 'adminclasses')}${card(st.subjects, 'Môn học', 'subjects')}${card(st.pending_requests, 'Yêu cầu giáo viên chờ duyệt', 'users:requests')}${card(codes, 'Mã học sinh bị trùng chờ xử lý', 'users:codes')}
     <div class="card span-12"><div class="section-head"><h2>Hoạt động gần đây</h2><button class="small secondary" data-goto="audit">Xem toàn bộ</button></div>
     ${logs.length ? logs.map((l) => `<div class="item"><div class="item-main"><div class="item-title">${esc(l.action)} · ${esc(l.target_table || '')}</div><div class="item-meta">${SL.fmtDate(l.created_at)}</div></div></div>`).join('') : ui.empty('Chưa có hoạt động nào.')}</div></div>`;
-  el.querySelectorAll('[data-goto]').forEach((b) => (b.onclick = () => SL.go(b.dataset.goto)));
+  el.querySelectorAll('[data-goto]').forEach((b) => (b.onclick = () => { const [pg, tab] = b.dataset.goto.split(':'); if (tab) U.tab = tab; SL.go(pg); }));
 });
 
 /* ---------------- Người dùng + yêu cầu giáo viên ---------------- */
-const U = { tab: 'accounts', page: 0, q: '', role: 'all', status: 'all', rstatus: 'pending', rpage: 0 };
+const U = { tab: 'requests', page: 0, q: '', role: 'all', status: 'all', rstatus: 'pending', rpage: 0 };
 SL.pages.users = {
-  title: 'Quản lý người dùng', sub: 'Tìm kiếm, đổi vai trò, khóa/mở khóa tài khoản và duyệt yêu cầu giáo viên.',
+  title: 'Quản lý người dùng', sub: 'Duyệt yêu cầu giáo viên · tìm và quản lý tài khoản (vai trò, màu giao diện, khóa).',
   render(el) {
     if (!guardAdmin(el)) return;
-    el.innerHTML = `<div class="subtabs"><button data-t="accounts" class="${U.tab === 'accounts' ? 'active' : ''}">Tài khoản</button><button data-t="requests" class="${U.tab === 'requests' ? 'active' : ''}">Yêu cầu giáo viên</button><button data-t="codes" class="${U.tab === 'codes' ? 'active' : ''}">Mã HS bị trùng</button></div><div id="uBody"></div>`;
+    el.innerHTML = `<div class="subtabs"><button data-t="requests" class="${U.tab === 'requests' ? 'active' : ''}">Yêu cầu giáo viên</button><button data-t="accounts" class="${U.tab === 'accounts' ? 'active' : ''}">Danh sách tài khoản</button><button data-t="codes" class="${U.tab === 'codes' ? 'active' : ''}">Mã HS bị trùng</button></div><div id="uBody"></div>`;
     el.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => { U.tab = b.dataset.t; SL.pages.users.render(el); }));
     (U.tab === 'accounts' ? drawAccounts : U.tab === 'codes' ? drawCodeReports : drawRequests)($('#uBody'));
   }
 };
+const ACCENTS = { default: ['Mặc định', '#5548e8'], blue: ['Xanh dương', '#2563eb'], green: ['Xanh lá', '#16845b'], red: ['Đỏ', '#c62828'], amber: ['Vàng', '#a86600'], purple: ['Tím', '#8b3fd9'], pink: ['Hồng', '#d6336c'], teal: ['Xanh ngọc', '#0f8b8d'] };
+const dot = (k) => `<span class="accent-dot" style="background:${(ACCENTS[k] || ACCENTS.default)[1]}" title="${(ACCENTS[k] || ACCENTS.default)[0]}"></span>`;
+const isInternal = (e) => /@mystudyload\.vercel\.app$/.test(e || '');
+const roleText = (r) => SL.roleLabel(r);
 function drawAccounts(el) {
-  el.innerHTML = `<div class="toolbar"><input id="uq" placeholder="Tìm tên, tài khoản, email…" value="${esc(U.q)}"><select id="ur"><option value="all">Mọi vai trò</option><option value="student">Học sinh</option><option value="teacher">Giáo viên</option><option value="admin">Quản trị viên</option></select><select id="us"><option value="all">Mọi trạng thái</option><option value="active">Đang hoạt động</option><option value="banned">Bị khóa</option></select><button class="secondary" id="uclear">Xóa lọc</button></div><div id="uList"></div><div class="pager" id="uPager"></div>`;
-  $('#ur').value = U.role; $('#us').value = U.status;
+  el.innerHTML = `<div class="toolbar"><input id="uq" type="search" placeholder="Tìm theo tên, mã học sinh, số điện thoại, tên tài khoản / email…" value="${esc(U.q)}" style="flex:1;min-width:220px"><select id="ur"><option value="all">Mọi vai trò</option><option value="student">Học sinh</option><option value="teacher">Giáo viên</option><option value="admin">Quản trị viên</option></select><button class="secondary" id="uclear">Xóa lọc</button></div><div id="uList"></div><div class="pager" id="uPager"></div>`;
+  $('#ur').value = U.role;
   let t; $('#uq').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { U.q = e.target.value; U.page = 0; load(); }, 350); };
   $('#ur').onchange = (e) => { U.role = e.target.value; U.page = 0; load(); };
-  $('#us').onchange = (e) => { U.status = e.target.value; U.page = 0; load(); };
-  $('#uclear').onclick = () => { Object.assign(U, { q: '', role: 'all', status: 'all', page: 0 }); drawAccounts(el); };
-  const load = () => ui.load($('#uList'), async () => {
-    let rows = await listUsers(U.q.trim());
-    if (U.role !== 'all') rows = rows.filter((u) => u.role === U.role);
-    if (U.status !== 'all') rows = rows.filter((u) => u.is_banned === (U.status === 'banned'));
-    return rows;
-  }, (rows) => {
-    const me = SL.profile().id, data = rows.slice(U.page * PAGE, U.page * PAGE + PAGE);
-    $('#uList').innerHTML = data.length ? `<div class="table-wrap"><table><thead><tr><th>Tên</th><th>Tài khoản / Email</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.map((u) => `<tr><td>${esc(u.display_name || '')}</td><td>${esc(u.username)}<div class="muted">${esc(u.email || '')}</div></td><td><span class="badge">${SL.roleLabel(u.role)}</span></td><td>${u.is_banned ? '<span class="badge red">Bị khóa</span>' : '<span class="badge green">Hoạt động</span>'}</td><td class="actions"><button class="small secondary" data-edit="${u.user_id}">Sửa</button> <button class="small secondary" data-role="${u.user_id}" ${u.user_id === me ? 'disabled title="Không thể tự đổi vai trò của chính mình"' : ''}>Đổi vai trò</button> <button class="small ${u.is_banned ? '' : 'danger'}" data-lock="${u.user_id}" ${u.user_id === me ? 'disabled' : ''}>${u.is_banned ? 'Mở khóa' : 'Khóa'}</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Không có tài khoản phù hợp bộ lọc.');
-    pager($('#uPager'), U.page, rows.length, PAGE, (p) => { U.page = p; load(); });
-    const find = (id) => rows.find((x) => x.user_id === id);
-    $('#uList').querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => editUser(find(b.dataset.edit), load)));
-    $('#uList').querySelectorAll('[data-role]').forEach((b) => (b.onclick = () => changeRole(find(b.dataset.role), load)));
-    $('#uList').querySelectorAll('[data-lock]').forEach((b) => (b.onclick = () => toggleLock(find(b.dataset.lock), load)));
+  $('#uclear').onclick = () => { Object.assign(U, { q: '', role: 'all', page: 0 }); drawAccounts(el); };
+  const load = () => ui.load($('#uList'), () => A.rpc('admin_search_accounts', { p_q: U.q.trim(), p_role: U.role, p_limit: PAGE, p_offset: U.page * PAGE }), (rows) => {
+    const total = rows.length ? Number(rows[0].total) : 0;
+    $('#uList').innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>Tên</th><th>Mã HS</th><th>Số điện thoại</th><th>Tài khoản / Email</th><th>Vai trò</th><th></th></tr></thead><tbody>${rows.map((u) => `<tr><td>${dot(u.accent)} <b>${esc(u.display_name || '')}</b>${u.is_banned ? ' <span class="badge red">Bị khóa</span>' : ''}<div class="muted">${esc(u.class_name || '')}</div></td><td>${esc(u.student_code || '—')}</td><td>${esc(u.phone || '—')}</td><td>${esc(u.username)}${isInternal(u.login_email) ? '' : '<div class="muted">' + esc(u.login_email) + '</div>'}</td><td>${roleText(u.role)}</td><td class="actions"><button class="small secondary" data-view="${u.user_id}">Chi tiết</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Không tìm thấy tài khoản nào.');
+    pager($('#uPager'), U.page, total, PAGE, (p) => { U.page = p; load(); });
+    $('#uList').querySelectorAll('[data-view]').forEach((b) => (b.onclick = () => accountDetail(b.dataset.view, load)));
   });
   load();
+}
+async function accountDetail(id, reload) {
+  let d;
+  try { d = await A.rpc('admin_get_account_detail', { p_user: id }); } catch (e) { return SL.toast(A.toApiError(e).message); }
+  const officer = (d.officer_roles || []).filter((r) => r.role === 'class_president' || r.role === 'academic_vp');
+  const row = (k, v) => `<div class="item"><div class="item-main"><div class="item-meta">${k}</div><div class="item-title">${v || '<span class="muted">—</span>'}</div></div></div>`;
+  SL.modal(`Tài khoản: ${esc(d.display_name || d.username)}`, `${row('Họ và tên', esc(d.display_name))}${row('Mã học sinh', esc(d.student_code))}${row('Số điện thoại', esc(d.phone))}${row('Tên tài khoản', esc(d.username))}${isInternal(d.login_email) ? '' : row('Email', esc(d.login_email))}${row('Lớp khai báo', esc(d.class_name))}${row('Vai trò', roleText(d.role) + (d.is_banned ? ' · <span class="badge red">Bị khóa</span>' : ''))}${row('Cán bộ lớp', officer.length ? officer.map((r) => esc(r.class_name)).join(', ') : '')}${row('Lớp tham gia', (d.classes || []).map((c) => esc(c.name)).join(', '))}${row('Ngày tạo', SL.fmtDate(d.created_at))}${row('Đăng nhập gần nhất', d.last_sign_in ? SL.fmtDate(d.last_sign_in) : '')}${row('Màu giao diện (theme)', dot(d.accent) + ' ' + ACCENTS[d.accent]?.[0])}
+    <div class="actions" style="margin-top:12px;flex-wrap:wrap"><button class="small" data-a="role">Đổi vai trò / quyền</button><button class="small secondary" data-a="accent">Đổi màu</button><button class="small secondary" data-a="edit">Sửa thông tin</button><button class="small ${d.is_banned ? 'secondary' : 'danger'}" data-a="lock">${d.is_banned ? 'Mở khóa' : 'Khóa tài khoản'}</button></div>`, 'Đóng');
+  const close = () => document.querySelector('[data-close]')?.click();
+  $('#modalSubmit').onclick = close;
+  const after = () => { reload(); accountDetail(id, reload); };
+  const u = { user_id: id, display_name: d.display_name, username: d.username, theme: d.theme, role: d.role, is_banned: d.is_banned, classes: d.classes, officer };
+  document.querySelectorAll('#modalRoot [data-a]').forEach((b) => (b.onclick = () => ({ role: () => changeRole(u, after), accent: () => changeAccent(u, d.accent, after), edit: () => editUser(u, after), lock: () => toggleLock(u, after) })[b.dataset.a]()));
+}
+function changeAccent(u, cur, reload) {
+  ui.form('Đổi màu giao diện', `<p>Màu theme của <b>${esc(u.display_name || u.username)}</b>. Chỉ quản trị viên đổi được.</p><div class="accent-grid">${Object.entries(ACCENTS).map(([k, v]) => `<label class="accent-opt"><input type="radio" name="ac" value="${k}" ${k === cur ? 'checked' : ''}><span class="accent-dot big" style="background:${v[1]}"></span> ${v[0]}</label>`).join('')}</div>`, 'Lưu màu',
+    async (root) => { const v = root.querySelector('[name=ac]:checked')?.value; if (!v) throw new Error('Hãy chọn một màu.'); await A.rpc('admin_set_user_accent', { p_user: u.user_id, p_accent: v }); reload(); }, 'Đã đổi màu giao diện.');
 }
 function editUser(u, reload) {
   ui.form('Sửa tài khoản', `<form><label>Họ tên *</label><input name="n" required maxlength="60" value="${esc(u.display_name || '')}"><label>Tên tài khoản *</label><input name="u" required pattern="[a-z0-9_]{3,30}" value="${esc(u.username)}"><label>Giao diện</label><select name="t"><option value="system" ${u.theme === 'system' ? 'selected' : ''}>Theo hệ thống</option><option value="light" ${u.theme === 'light' ? 'selected' : ''}>Sáng</option><option value="dark" ${u.theme === 'dark' ? 'selected' : ''}>Tối</option></select></form>`, 'Lưu',
@@ -66,8 +78,32 @@ function editUser(u, reload) {
       await A.rpc('admin_update_user_profile', { target_user_id: u.user_id, new_username: v.u.toLowerCase(), new_display_name: v.n.trim(), new_theme: v.t }); reload(); }, 'Đã cập nhật tài khoản.');
 }
 function changeRole(u, reload) {
-  ui.form('Đổi vai trò', `<p>Tài khoản: <b>${esc(u.display_name || u.username)}</b> (hiện là ${SL.roleLabel(u.role)})</p><label>Vai trò mới</label><select name="r">${['student', 'teacher', 'admin'].map((r) => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${SL.roleLabel(r)}</option>`).join('')}</select>`, 'Đổi vai trò',
-    async (root) => { const r = root.querySelector('[name=r]').value; if (r === u.role) throw new Error('Tài khoản đang có vai trò này. Hãy chọn vai trò khác.'); await A.rpc('admin_set_user_role', { target_user_id: u.user_id, new_role: r }); reload(); }, 'Đã đổi vai trò.');
+  const hasCls = (u.classes || []).length > 0;
+  ui.form('Đổi vai trò / quyền', `<p>Tài khoản: <b>${esc(u.display_name || u.username)}</b> (hiện là ${roleText(u.role)}${(u.officer || []).length ? ', cán bộ lớp ' + u.officer.map((r) => esc(r.class_name)).join(', ') : ''})</p><label>Vai trò mới</label><select name="r">${[['student', 'Học sinh'], ['officer', 'Cán bộ lớp (học sinh)'], ['teacher', 'Giáo viên'], ['admin', 'Quản trị viên']].map(([r, l]) => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    <div id="offBox" class="hidden"><label>Lớp *</label><select name="c">${(u.classes || []).map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select><div id="repBox" class="hidden"><label>Lớp đã đủ 2 cán bộ — thay thế bạn nào? *</label><select name="rep"></select></div>${hasCls ? '<p class="muted">Cán bộ lớp: tối đa 2 bạn mỗi lớp, quyền ngang nhau (giao bài, xem thống kê, báo cáo, xuất dữ liệu).</p>' : '<div class="notice">Tài khoản này chưa thuộc lớp nào nên chưa thể làm cán bộ lớp.</div>'}</div>
+    ${(u.officer || []).length ? `<div class="muted" style="margin-top:10px">Gỡ cán bộ lớp: ${u.officer.map((r) => `<button type="button" class="small secondary" data-rm="${r.class_id}">${esc(r.class_name)} ✕</button>`).join(' ')}</div>` : ''}`, 'Lưu',
+    async (root) => {
+      const r = root.querySelector('[name=r]').value;
+      if (r === 'officer') {
+        const c = root.querySelector('[name=c]')?.value; if (!c) throw new Error('Hãy chọn lớp.');
+        await A.rpc('admin_set_class_officer', { p_class_id: c, p_user_id: u.user_id, p_replace_user_id: root.querySelector('#repBox').classList.contains('hidden') ? null : root.querySelector('[name=rep]').value || null });
+        if (u.role !== 'student') await A.rpc('admin_set_user_role', { target_user_id: u.user_id, new_role: 'student' });
+      } else { if (r === u.role) throw new Error('Tài khoản đang có vai trò này. Hãy chọn vai trò khác.'); await A.rpc('admin_set_user_role', { target_user_id: u.user_id, new_role: r }); }
+      reload();
+    }, 'Đã cập nhật vai trò.');
+  const root = $('#modalRoot'), sel = root.querySelector('[name=r]');
+  const checkRep = async () => {
+    const c = root.querySelector('[name=c]')?.value, box = root.querySelector('#repBox'); box.classList.add('hidden');
+    if (!c || sel.value !== 'officer') return;
+    try {
+      const rows = await A.run(A.sb.from('class_officer_roles').select('user_id,role').eq('class_id', c).is('ended_at', null).in('role', ['class_president', 'academic_vp']));
+      if (rows.some((x) => x.user_id === u.user_id)) return;
+      if (rows.length >= 2) { const names = await userMap(rows.map((x) => x.user_id)); root.querySelector('[name=rep]').innerHTML = rows.map((x) => `<option value="${x.user_id}">${esc((names[x.user_id] || {}).display_name || x.user_id)}</option>`).join(''); box.classList.remove('hidden'); }
+    } catch (e) { /* bỏ qua, máy chủ sẽ báo lỗi nếu lớp đủ người */ }
+  };
+  const sync = () => { root.querySelector('#offBox').classList.toggle('hidden', sel.value !== 'officer'); checkRep(); };
+  sel.onchange = sync; root.querySelector('[name=c]')?.addEventListener('change', checkRep); sync();
+  root.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = async () => { b.disabled = true; try { await A.rpc('admin_remove_class_officer', { p_class_id: b.dataset.rm, p_user_id: u.user_id }); document.querySelector('[data-close]')?.click(); SL.toast('Đã gỡ cán bộ lớp.'); reload(); } catch (e) { b.disabled = false; SL.toast(A.toApiError(e).message); } }));
 }
 function toggleLock(u, reload) {
   const lock = !u.is_banned;
@@ -107,7 +143,7 @@ function drawRequests(el) {
     return { ...r, names: await userMap([...new Set(r.data.map((x) => x.user_id))]) };
   }, ({ data, count, names }) => {
     $('#rList').innerHTML = data.length ? data.map((r) => { const [lb, cl] = REQ_STATUS[r.status] || [r.status, ''], u = names[r.user_id] || {};
-      return `<div class="item"><div class="item-main"><div class="item-title">${esc(u.display_name || u.username || '?')} · xin quyền giáo viên <span class="badge ${cl}">${lb}</span></div><div class="item-meta">${esc(u.email || '')}${r.phone ? ' · ĐT: ' + esc(r.phone) : ''} · Gửi: ${SL.fmtDate(r.created_at)}${r.message ? ' · ' + esc(r.message) : ''}${r.review_note ? ' · Ghi chú: ' + esc(r.review_note) : ''}</div></div>${r.status === 'pending' ? `<div class="actions"><button class="small" data-ok="${r.id}">Chấp nhận</button><button class="small danger" data-no="${r.id}">Từ chối</button></div>` : ''}</div>`; }).join('') : ui.empty('Không có yêu cầu nào.');
+      return `<div class="item"><div class="item-main"><div class="item-title">${esc(u.display_name || u.username || '?')} · xin quyền giáo viên <span class="badge ${cl}">${lb}</span></div><div class="item-meta">${r.phone ? 'SĐT cần xác minh: <b>' + esc(r.phone) + '</b> · ' : ''}${u.student_code ? 'Mã HS: ' + esc(u.student_code) + ' · ' : ''}Gửi: ${SL.fmtDate(r.created_at)}${r.message ? ' · ' + esc(r.message) : ''}${r.review_note ? ' · Ghi chú: ' + esc(r.review_note) : ''}</div></div>${r.status === 'pending' ? `<div class="actions"><button class="small" data-ok="${r.id}">Chấp nhận</button><button class="small danger" data-no="${r.id}">Từ chối</button></div>` : ''}</div>`; }).join('') : ui.empty('Không có yêu cầu nào.');
     pager($('#rPager'), U.rpage, count, PAGE, (p) => { U.rpage = p; load(); });
     const decide = (id, approve) => ui.form(approve ? 'Chấp nhận yêu cầu' : 'Từ chối yêu cầu', `<label>Ghi chú (không bắt buộc)</label><textarea name="n" rows="2" maxlength="300"></textarea>`, approve ? 'Chấp nhận' : 'Từ chối',
       async (root) => { await A.rpc('admin_review_teacher_request', { target_request_id: id, decision: approve ? 'approved' : 'rejected', note: root.querySelector('[name=n]').value.trim() || null }); load(); }, approve ? 'Đã chấp nhận yêu cầu.' : 'Đã từ chối yêu cầu.');
