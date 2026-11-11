@@ -65,12 +65,12 @@ const auth = {
     return e;
   },
   async signUp(f) {
-    const id = auth.parseIdent(f.ident), phone = id.kind === 'phone' ? id.value : (f.phone || '').replace(/[\s.\-()]/g, '');
+    const id = auth.parseIdent(f.ident), phone = id.kind === 'phone' ? id.value : '';
     let r;
     try {
       r = await sb.auth.signUp({ email: id.email, password: f.password, options: {
         data: { display_name: f.displayName.trim(), student_id: id.kind === 'code' ? id.value : '', class_name: (f.className || '').trim(),
-          ...(f.wantTeacher ? { teacher_signup: 'true', phone } : {}) } } });
+          ...(id.kind === 'phone' ? { teacher_signup: 'true', phone } : {}) } } });
     } catch (e) { throw toApiError(e); }
     if (r.error) {
       if (/already|registered/i.test(r.error.message)) throw new ApiError('conflict', id.kind === 'phone' ? 'Số điện thoại này đã có tài khoản sử dụng.' : 'Mã học sinh này đã có tài khoản sử dụng.');
