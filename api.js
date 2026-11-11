@@ -73,17 +73,47 @@ const auth = {
     if (r.data.user && r.data.user.identities && r.data.user.identities.length === 0) throw new ApiError('conflict', 'Email đã tồn tại.');
     return r.data.session ? 'signed_in' : 'confirm_email';
   },
+  validateTeacher(f) {
+    const e = {};
+    if (!f.displayName.trim()) e.displayName = 'Họ tên không được để trống.';
+    if (!EMAIL_RE.test(f.email)) e.email = 'Email không hợp lệ.';
+    if (!/^(\+?84|0)[0-9]{8,10}$/.test((f.phone || '').replace(/[\s.\-()]/g, ''))) e.phone = 'Số điện thoại không hợp lệ.';
+    if (f.password.length < 8) e.password = 'Mật khẩu tối thiểu 8 ký tự.';
+    return e;
+  },
+  async signUpTeacher(f) {
+    const local = (f.email.split('@')[0] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_]/g, '_').slice(0, 22) || 'gv';
+    let username = null;
+    for (let i = 0; i < 6 && !username; i++) {
+      const cand = (local.length < 3 ? local + '_gv' : local) + '_' + String(Math.floor(1000 + Math.random() * 9000));
+      if (await rpc('username_available', { p_username: cand })) username = cand;
+    }
+    if (!username) throw new ApiError('conflict', 'Không tạo được tên tài khoản, hãy thử lại.');
+    let r;
+    try {
+      r = await sb.auth.signUp({ email: f.email, password: f.password, options: {
+        emailRedirectTo: location.origin + location.pathname,
+        data: { username, display_name: f.displayName.trim(), teacher_signup: 'true', phone: f.phone.replace(/[\s.\-()]/g, '') } } });
+    } catch (e) { throw toApiError(e); }
+    if (r.error) {
+      if (/already|registered/i.test(r.error.message)) throw new ApiError('conflict', 'Email đã tồn tại.');
+      if (/Database error/i.test(r.error.message)) throw new ApiError('conflict', 'Không tạo được hồ sơ (email hoặc số điện thoại có thể không hợp lệ).');
+      throw toApiError(r.error);
+    }
+    if (r.data.user && r.data.user.identities && r.data.user.identities.length === 0) throw new ApiError('conflict', 'Email đã tồn tại.');
+    return r.data.session ? 'signed_in' : 'confirm_email';
+  },
   async signIn(identifier, password) {
     identifier = identifier.trim();
     let email = identifier.toLowerCase();
     if (!identifier.includes('@')) {
       email = await rpc('resolve_login', { p_username: identifier });
-      if (!email) throw new ApiError('auth', 'Tên tài khoản hoặc mật khẩu không đúng.');
+      if (!email) throw new ApiError('auth', 'Mã học sinh/số điện thoại hoặc mật khẩu không đúng.');
     }
     let r; try { r = await sb.auth.signInWithPassword({ email, password }); } catch (e) { throw toApiError(e); }
     if (r.error) {
       if (/not confirmed/i.test(r.error.message)) throw new ApiError('auth', 'Email chưa được xác nhận. Hãy mở thư xác nhận rồi đăng nhập lại.');
-      if (/Invalid login/i.test(r.error.message)) throw new ApiError('auth', 'Tên tài khoản/email hoặc mật khẩu không đúng.');
+      if (/Invalid login/i.test(r.error.message)) throw new ApiError('auth', 'Mã học sinh/số điện thoại hoặc mật khẩu không đúng.');
       throw toApiError(r.error);
     }
     try { return await auth.loadProfile(); }
