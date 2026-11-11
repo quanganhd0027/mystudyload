@@ -48,30 +48,36 @@ async function all(make) { // lấy hết dữ liệu theo trang 1000 dòng
 const USER_RE = /^[a-z0-9_]{3,30}$/, EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/, UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = v => typeof v === 'string' && UUID_RE.test(v);
 const auth = {
+  /* Một ô duy nhất "mã học sinh hoặc số điện thoại": số điện thoại Việt Nam → kind 'phone', còn lại → mã học sinh */
+  parseIdent(raw) {
+    const t = String(raw || '').trim(), p = t.replace(/[\s.\-()]/g, '');
+    if (/^(\+?84|0)[0-9]{8,10}$/.test(p)) { const d = p.replace(/^\+/, ''), n = d.startsWith('84') ? d : '84' + d.slice(1); return { kind: 'phone', value: p, norm: n, email: `p_${n}@mystudyload.vercel.app` }; }
+    const hex = Array.from(new TextEncoder().encode(t.toLowerCase())).map(b => b.toString(16).padStart(2, '0')).join('');
+    return { kind: 'code', value: t, email: `c_${hex}@mystudyload.vercel.app` };
+  },
   validateRegister(f) {
-    const e = {};
-    if (!f.displayName.trim()) e.displayName = 'Họ tên không được để trống.';
-    if (!USER_RE.test(f.username)) e.username = 'Tên tài khoản phải dài 3–30 ký tự, chỉ gồm chữ thường, số và dấu gạch dưới.';
-    if (!EMAIL_RE.test(f.email)) e.email = 'Email không hợp lệ.';
+    const e = {}, id = auth.parseIdent(f.ident);
+    if (!(f.displayName || '').trim()) e.displayName = 'Họ tên không được để trống.';
+    if (!id.value) e.ident = 'Hãy nhập mã học sinh hoặc số điện thoại.';
+    else if (id.kind === 'code' && !/^[\p{L}\p{N}._\-]{2,40}$/u.test(id.value)) e.ident = 'Mã học sinh chỉ gồm chữ, số, dấu chấm, gạch ngang hoặc gạch dưới (2–40 ký tự).';
     if (f.password.length < 8) e.password = 'Mật khẩu tối thiểu 8 ký tự.';
     if (f.password !== f.confirm) e.confirm = 'Mật khẩu xác nhận không khớp.';
     return e;
   },
   async signUp(f) {
-    if (!(await rpc('username_available', { p_username: f.username }))) throw new ApiError('conflict', 'Tên tài khoản đã tồn tại.');
+    const id = auth.parseIdent(f.ident), phone = id.kind === 'phone' ? id.value : (f.phone || '').replace(/[\s.\-()]/g, '');
     let r;
     try {
-      r = await sb.auth.signUp({ email: f.email, password: f.password, options: {
-        emailRedirectTo: location.origin + location.pathname,
-        data: { username: f.username, display_name: f.displayName.trim(), student_id: (f.studentCode || '').trim(), class_name: (f.className || '').trim(),
-          ...(f.wantTeacher ? { teacher_signup: 'true', phone: (f.phone || '').replace(/[\s.\-()]/g, '') } : {}) } } });
+      r = await sb.auth.signUp({ email: id.email, password: f.password, options: {
+        data: { display_name: f.displayName.trim(), student_id: id.kind === 'code' ? id.value : '', class_name: (f.className || '').trim(),
+          ...(f.wantTeacher ? { teacher_signup: 'true', phone } : {}) } } });
     } catch (e) { throw toApiError(e); }
     if (r.error) {
-      if (/already|registered/i.test(r.error.message)) throw new ApiError('conflict', 'Email đã tồn tại.');
-      if (/Database error/i.test(r.error.message)) throw new ApiError('conflict', 'Không tạo được hồ sơ (tên tài khoản, mã học sinh hoặc email có thể đã tồn tại).');
+      if (/already|registered/i.test(r.error.message)) throw new ApiError('conflict', id.kind === 'phone' ? 'Số điện thoại này đã có tài khoản sử dụng.' : 'Mã học sinh này đã có tài khoản sử dụng.');
+      if (/Database error/i.test(r.error.message)) throw new ApiError('conflict', 'Không tạo được hồ sơ (mã học sinh hoặc số điện thoại có thể đã được dùng).');
       throw toApiError(r.error);
     }
-    if (r.data.user && r.data.user.identities && r.data.user.identities.length === 0) throw new ApiError('conflict', 'Email đã tồn tại.');
+    if (r.data.user && r.data.user.identities && r.data.user.identities.length === 0) throw new ApiError('conflict', 'Tài khoản đã tồn tại.');
     return r.data.session ? 'signed_in' : 'confirm_email';
   },
   validPhone: (p) => /^(\+?84|0)[0-9]{8,10}$/.test(p || ''),
