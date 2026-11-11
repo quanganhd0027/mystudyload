@@ -32,9 +32,9 @@ SL.pages.users = {
   title: 'Quản lý người dùng', sub: 'Tìm kiếm, đổi vai trò, khóa/mở khóa tài khoản và duyệt yêu cầu giáo viên.',
   render(el) {
     if (!guardAdmin(el)) return;
-    el.innerHTML = `<div class="subtabs"><button data-t="accounts" class="${U.tab === 'accounts' ? 'active' : ''}">Tài khoản</button><button data-t="requests" class="${U.tab === 'requests' ? 'active' : ''}">Yêu cầu giáo viên</button></div><div id="uBody"></div>`;
+    el.innerHTML = `<div class="subtabs"><button data-t="accounts" class="${U.tab === 'accounts' ? 'active' : ''}">Tài khoản</button><button data-t="requests" class="${U.tab === 'requests' ? 'active' : ''}">Yêu cầu giáo viên</button><button data-t="codes" class="${U.tab === 'codes' ? 'active' : ''}">Mã HS bị trùng</button></div><div id="uBody"></div>`;
     el.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => { U.tab = b.dataset.t; SL.pages.users.render(el); }));
-    (U.tab === 'accounts' ? drawAccounts : drawRequests)($('#uBody'));
+    (U.tab === 'accounts' ? drawAccounts : U.tab === 'codes' ? drawCodeReports : drawRequests)($('#uBody'));
   }
 };
 function drawAccounts(el) {
@@ -74,6 +74,29 @@ function toggleLock(u, reload) {
   ui.form(lock ? 'Khóa tài khoản' : 'Mở khóa tài khoản', `<p>${lock ? 'Người dùng sẽ không thể đăng nhập hay truy cập dữ liệu. Dữ liệu cũ vẫn được giữ.' : 'Người dùng sẽ đăng nhập lại được.'}</p><p><b>${esc(u.display_name || u.username)}</b> (${esc(u.username)})</p>`, lock ? 'Khóa' : 'Mở khóa',
     async () => { await A.rpc('admin_set_user_banned', { target_user_id: u.user_id, ban_status: lock }); reload(); }, lock ? 'Đã khóa tài khoản.' : 'Đã mở khóa tài khoản.');
 }
+const CR_STATUS = { pending: ['Chờ xử lý', 'amber'], resolved: ['Đã xử lý', 'green'], rejected: ['Từ chối', 'red'], all: ['Tất cả', ''] };
+function drawCodeReports(el) {
+  el.innerHTML = `<div class="toolbar"><select id="cs">${Object.entries(CR_STATUS).map(([k, v]) => `<option value="${k}">${k === 'all' ? 'Mọi trạng thái' : v[0]}</option>`).join('')}</select></div><div id="cList"></div><div class="pager" id="cPager"></div>`;
+  U.cstatus = U.cstatus || 'pending'; U.cpage = U.cpage || 0;
+  $('#cs').value = U.cstatus; $('#cs').onchange = (e) => { U.cstatus = e.target.value; U.cpage = 0; load(); };
+  const load = () => ui.load($('#cList'), async () => {
+    const rows = await A.rpc('admin_list_code_reports', { p_status: U.cstatus, p_limit: PAGE, p_offset: U.cpage * PAGE });
+    return { rows, count: rows.length ? Number(rows[0].total) : 0 };
+  }, ({ rows, count }) => {
+    $('#cList').innerHTML = rows.length ? rows.map((r) => { const [lb, cl] = CR_STATUS[r.status] || [r.status, ''];
+      return `<div class="item"><div class="item-main"><div class="item-title">Mã <b>${esc(r.student_code)}</b> · ${esc(r.full_name)} (lớp ${esc(r.class_name)}) <span class="badge ${cl}">${lb}</span></div>
+      <div class="item-meta">Gửi: ${SL.fmtDate(r.created_at)}${r.contact ? ' · Liên hệ: ' + esc(r.contact) : ''}<br>${r.holder_id ? `Tài khoản đang giữ mã: <b>${esc(r.holder_name || r.holder_username)}</b> (${esc(r.holder_username)}${r.holder_email ? ' · ' + esc(r.holder_email) : ''}${r.holder_class ? ' · lớp ' + esc(r.holder_class) : ''})` : 'Hiện không có tài khoản nào giữ mã này.'}${r.admin_note ? '<br>Ghi chú: ' + esc(r.admin_note) : ''}</div></div>
+      <div class="actions">${r.status === 'pending' ? `${r.holder_id ? `<button class="small" data-rel="${r.id}">Gỡ mã khỏi tài khoản đang giữ</button>` : `<button class="small" data-ok="${r.id}">Đánh dấu đã xử lý</button>`}<button class="small danger" data-no="${r.id}">Từ chối</button>` : ''}</div></div>`; }).join('') : ui.empty('Chưa có yêu cầu nào.');
+    pager($('#cPager'), U.cpage, count, PAGE, (pg) => { U.cpage = pg; load(); });
+    const decide = (id, decision, release) => ui.form(decision === 'rejected' ? 'Từ chối yêu cầu' : release ? 'Gỡ mã học sinh khỏi tài khoản đang giữ' : 'Đánh dấu đã xử lý',
+      `${release ? '<div class="notice">Tài khoản đang giữ mã sẽ bị xóa mã học sinh (tài khoản vẫn còn). Người báo cáo sau đó đăng ký lại với mã này được.</div>' : ''}<label>Ghi chú (không bắt buộc)</label><textarea name="n" rows="2" maxlength="300"></textarea>`, 'Xác nhận',
+      async (root) => { await A.rpc('admin_review_code_report', { p_id: id, p_decision: decision, p_note: root.querySelector('[name=n]').value.trim() || null, p_release: !!release }); load(); }, 'Đã cập nhật yêu cầu.');
+    $('#cList').querySelectorAll('[data-rel]').forEach((b) => (b.onclick = () => decide(b.dataset.rel, 'resolved', true)));
+    $('#cList').querySelectorAll('[data-ok]').forEach((b) => (b.onclick = () => decide(b.dataset.ok, 'resolved', false)));
+    $('#cList').querySelectorAll('[data-no]').forEach((b) => (b.onclick = () => decide(b.dataset.no, 'rejected', false)));
+  });
+  load();
+}
 function drawRequests(el) {
   el.innerHTML = `<div class="toolbar"><select id="rs"><option value="all">Mọi trạng thái</option>${Object.entries(REQ_STATUS).map(([k, v]) => `<option value="${k}">${v[0]}</option>`).join('')}</select></div><div id="rList"></div><div class="pager" id="rPager"></div>`;
   $('#rs').value = U.rstatus; $('#rs').onchange = (e) => { U.rstatus = e.target.value; U.rpage = 0; load(); };
@@ -84,7 +107,7 @@ function drawRequests(el) {
     return { ...r, names: await userMap([...new Set(r.data.map((x) => x.user_id))]) };
   }, ({ data, count, names }) => {
     $('#rList').innerHTML = data.length ? data.map((r) => { const [lb, cl] = REQ_STATUS[r.status] || [r.status, ''], u = names[r.user_id] || {};
-      return `<div class="item"><div class="item-main"><div class="item-title">${esc(u.display_name || u.username || '?')} · xin quyền giáo viên <span class="badge ${cl}">${lb}</span></div><div class="item-meta">${esc(u.email || '')} · Gửi: ${SL.fmtDate(r.created_at)}${r.message ? ' · ' + esc(r.message) : ''}${r.review_note ? ' · Ghi chú: ' + esc(r.review_note) : ''}</div></div>${r.status === 'pending' ? `<div class="actions"><button class="small" data-ok="${r.id}">Chấp nhận</button><button class="small danger" data-no="${r.id}">Từ chối</button></div>` : ''}</div>`; }).join('') : ui.empty('Không có yêu cầu nào.');
+      return `<div class="item"><div class="item-main"><div class="item-title">${esc(u.display_name || u.username || '?')} · xin quyền giáo viên <span class="badge ${cl}">${lb}</span></div><div class="item-meta">${esc(u.email || '')}${r.phone ? ' · ĐT: ' + esc(r.phone) : ''} · Gửi: ${SL.fmtDate(r.created_at)}${r.message ? ' · ' + esc(r.message) : ''}${r.review_note ? ' · Ghi chú: ' + esc(r.review_note) : ''}</div></div>${r.status === 'pending' ? `<div class="actions"><button class="small" data-ok="${r.id}">Chấp nhận</button><button class="small danger" data-no="${r.id}">Từ chối</button></div>` : ''}</div>`; }).join('') : ui.empty('Không có yêu cầu nào.');
     pager($('#rPager'), U.rpage, count, PAGE, (p) => { U.rpage = p; load(); });
     const decide = (id, approve) => ui.form(approve ? 'Chấp nhận yêu cầu' : 'Từ chối yêu cầu', `<label>Ghi chú (không bắt buộc)</label><textarea name="n" rows="2" maxlength="300"></textarea>`, approve ? 'Chấp nhận' : 'Từ chối',
       async (root) => { await A.rpc('admin_review_teacher_request', { target_request_id: id, decision: approve ? 'approved' : 'rejected', note: root.querySelector('[name=n]').value.trim() || null }); load(); }, approve ? 'Đã chấp nhận yêu cầu.' : 'Đã từ chối yêu cầu.');
