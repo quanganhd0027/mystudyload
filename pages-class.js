@@ -3,7 +3,8 @@
 (() => {
 'use strict';
 const SL = window.SL, A = window.SLApi, { esc, ui, $ } = SL, { toIso, fmtBytes } = SL.util, sb = A.sb;
-const ROLE = { class_president: 'Lớp trưởng', academic_vp: 'Lớp phó học tập', labor_vp: 'Lớp phó lao động', team_leader: 'Tổ trưởng' };
+const ROLE = { class_president: 'Cán bộ lớp', academic_vp: 'Cán bộ lớp', labor_vp: 'Lớp phó lao động', team_leader: 'Tổ trưởng' };
+const MAIN = ['class_president', 'academic_vp', 'labor_vp'];
 const OT_STATUS = { not_started: ['Chưa làm', ''], in_progress: ['Đang làm', 'amber'], completed: ['Hoàn thành', 'green'] };
 const DUTY_STATUS = { pending: ['Chờ thực hiện', ''], submitted: ['Đã nộp, chờ duyệt', 'amber'], approved: ['Đã duyệt', 'green'], rejected: ['Bị từ chối', 'red'] };
 const CAT = { academic: 'Học tập', labor: 'Lao động', culture: 'Văn nghệ', general: 'Chung' };
@@ -30,9 +31,10 @@ async function loadCtx(cls) {
   const delegated = activeDeleg.filter((d) => d.delegated_to === me).map((d) => d.officer_role);
   const roles = [...new Set([...direct, ...delegated])], has = (...r) => r.some((x) => roles.includes(x));
   const adm = SL.isAdmin(), home = cls.homeroomId === me, tch = cls.teacherIds.includes(me);
+  const isOfficer = direct.some((r) => MAIN.includes(r));
   const lead = officers.some((o) => o.role === 'team_leader' && o.user_id === me);
-  const perms = { adm, home, tch, roles, direct, manageMembers: adm, manageTeams: adm || home || has('class_president'), assignOfficers: adm || home,
-    createOT: adm || home || roles.length > 0, manageDuty: adm || home || has('labor_vp'), postAnn: adm || home || has('class_president'),
+  const perms = { adm, home, tch, roles, direct, isOfficer, stats: adm || home || tch || isOfficer, manageMembers: adm || home, manageTeams: adm || home || has('class_president'), assignOfficers: adm || home,
+    createOT: adm || home || roles.length > 0, manageDuty: adm || home || has('labor_vp'), postAnn: adm || home || isOfficer,
     viewReports: adm || home || has('class_president'), editReports: adm || home || has('class_president'),
     assign: adm || has('academic_vp') || tch, delegate: adm || home || direct.length > 0, lead };
   return { cls, members, teams, tmembers, officers, delegs: delegs || [], names, codes, perms, me };
@@ -46,21 +48,31 @@ const needMsg = (m) => `<div class="notice">${m}</div>`;
 SL.pages.classmgmt = {
   title: 'Quản lý lớp', sub: 'Thành viên, tổ, cán bộ lớp, nhiệm vụ, trực nhật, thông báo, báo cáo tuần và ủy quyền.',
   render(el) {
-    const list = myClasses();
-    if (!list.length) { el.innerHTML = ui.empty(SL.isStudent() ? 'Bạn chưa thuộc lớp nào. Hãy liên hệ quản trị viên để được thêm vào lớp.' : 'Bạn chưa được phân công lớp nào. Hãy liên hệ quản trị viên.'); return; }
+    const list = myClasses(), canCreate = SL.isTeacher() && !SL.isAdmin();
+    const createBtn = canCreate ? '<button id="kcreate">+ Tạo lớp</button>' : '';
+    if (!list.length) { el.innerHTML = (canCreate ? `<div class="toolbar">${createBtn}</div>` : '') + ui.empty(SL.isStudent() ? 'Bạn chưa thuộc lớp nào. Hãy nhờ giáo viên chủ nhiệm thêm bạn vào lớp bằng mã học sinh của bạn.' : canCreate ? 'Bạn chưa có lớp nào. Hãy bấm "Tạo lớp" để bắt đầu.' : 'Bạn chưa được phân công lớp nào. Hãy liên hệ quản trị viên.'); $('#kcreate')?.addEventListener('click', createClass); return; }
     let id = SL.selectedClass || K.classId; SL.selectedClass = null;
     if (!list.find((c) => c.id === id)) id = list[0].id; K.classId = id;
-    el.innerHTML = `<div class="toolbar"><select id="kcls">${list.map((c) => `<option value="${c.id}" ${c.id === id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></div><div id="kbody"></div>`;
+    el.innerHTML = `<div class="toolbar"><select id="kcls">${list.map((c) => `<option value="${c.id}" ${c.id === id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>${createBtn}</div><div id="kbody"></div>`;
+    $('#kcreate')?.addEventListener('click', createClass);
     $('#kcls').onchange = (e) => { K.classId = e.target.value; K.tab = 'overview'; SL.pages.classmgmt.render(el); };
     drawTab();
   }
 };
+function createClass() {
+  const yr = new Date().getFullYear(), m = new Date().getMonth();
+  const y0 = m >= 7 ? yr : yr - 1;
+  ui.form('Tạo lớp mới', `<form><label>Tên lớp *</label><input name="n" required maxlength="60" placeholder="VD: 10A1"><label>Năm học</label><input name="y" maxlength="20" value="${y0}-${y0 + 1}"><label>Mô tả</label><input name="d" maxlength="200"></form><div class="footer-note">Bạn sẽ là giáo viên chủ nhiệm của lớp này. Sau khi tạo, vào tab "Thành viên" để thêm học sinh bằng mã học sinh.</div>`, 'Tạo lớp',
+    async (root) => { const f = root.querySelector('form'); if (!f.reportValidity()) return false; const v = Object.fromEntries(new FormData(f).entries());
+      const id = await A.rpc('teacher_create_class', { p_name: v.n.trim(), p_academic_year: v.y.trim() || null, p_description: v.d.trim() || null });
+      SL.selectedClass = id; K.classId = id; K.tab = 'members'; await SL.reload(); }, 'Đã tạo lớp.');
+}
 function drawTab() {
   const body = $('#kbody'); if (!body) return;
   const cls = SL.state().classes.find((c) => c.id === K.classId);
   ui.load(body, () => loadCtx(cls), (ctx) => {
     const P = ctx.perms;
-    const tabs = [['overview', 'Tổng quan'], ['members', 'Thành viên'], ['teams', 'Tổ'], ['officers', 'Cán bộ lớp'], ['otasks', 'Nhiệm vụ cán bộ'], ['duty', 'Trực nhật'], ['ann', 'Thông báo lớp'], ...(P.viewReports ? [['reports', 'Báo cáo tuần']] : []), ['deleg', 'Ủy quyền']];
+    const tabs = [['overview', 'Tổng quan'], ['members', 'Thành viên'], ['teams', 'Tổ'], ['officers', 'Cán bộ lớp'], ['otasks', 'Nhiệm vụ cán bộ'], ['duty', 'Trực nhật'], ['ann', 'Thông báo lớp'], ...(P.stats ? [['stats', 'Thống kê bài tập']] : []), ...(P.viewReports ? [['reports', 'Báo cáo tuần']] : []), ['deleg', 'Ủy quyền']];
     if (!tabs.find((t) => t[0] === K.tab)) K.tab = 'overview';
     body.innerHTML = `<div class="subtabs">${tabs.map(([k, l]) => `<button data-k="${k}" class="${K.tab === k ? 'active' : ''}">${l}</button>`).join('')}</div><div id="ktab"></div>`;
     body.querySelectorAll('[data-k]').forEach((b) => (b.onclick = () => { K.tab = b.dataset.k; drawTab(); }));
@@ -79,14 +91,44 @@ TABS.overview = (el, c) => {
   $('#asgn')?.addEventListener('click', () => SL.assignToClass(c.cls.id));
 };
 
-/* ---------- Thành viên (chỉ xem; quản trị viên thêm/xóa ở mục Quản lý lớp học) ---------- */
+/* ---------- Thành viên (giáo viên chủ nhiệm thêm bằng mã học sinh) ---------- */
+const CODE_ST = { ok: ['Sẵn sàng thêm', 'green'], added: ['Đã thêm', 'green'], in_class: ['Đã ở trong lớp', ''], not_found: ['Không tìm thấy mã', 'red'], not_student: ['Không phải tài khoản học sinh', 'red'], banned: ['Tài khoản bị khóa', 'red'], duplicate: ['Mã trùng nhiều tài khoản', 'red'] };
+const parseCodes = (t) => [...new Set(String(t || '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean))];
+function addByCode(c) {
+  SL.modal('Thêm học sinh bằng mã', `<label>Mã học sinh (mỗi mã một dòng hoặc cách nhau bằng dấu phẩy)</label><textarea id="codeIn" rows="4" placeholder="VD: HS001&#10;HS002"></textarea><div class="footer-note">Mã do học sinh tự nhập khi đăng ký. Hãy đối chiếu họ tên hiển thị trước khi xác nhận.</div><div id="codeRes" style="margin-top:10px"></div><div id="codeErr" class="notice red hidden"></div>`, 'Kiểm tra mã');
+  let stage = 'check', okCodes = [];
+  const btn = $('#modalSubmit'), err = $('#codeErr'), res = $('#codeRes');
+  const show = (rows) => { res.innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>Mã</th><th>Họ tên</th><th>Kết quả</th></tr></thead><tbody>${rows.map((r) => { const [lb, cl] = CODE_ST[r.status] || [r.status, '']; return `<tr><td>${esc(r.code)}</td><td>${esc(r.display_name || r.username || '—')}</td><td><span class="badge ${cl}">${lb}</span></td></tr>`; }).join('')}</tbody></table></div>` : ''; };
+  btn.onclick = async () => {
+    err.classList.add('hidden'); btn.disabled = true;
+    try {
+      if (stage === 'check') {
+        const codes = parseCodes($('#codeIn').value);
+        if (!codes.length) throw new A.ApiError('validation', 'Hãy nhập ít nhất một mã học sinh.');
+        if (codes.length > 100) throw new A.ApiError('validation', 'Mỗi lần thêm tối đa 100 mã.');
+        const rows = await A.rpc('teacher_lookup_student_codes', { p_class_id: c.cls.id, p_codes: codes });
+        show(rows); okCodes = rows.filter((r) => r.status === 'ok').map((r) => r.code);
+        if (okCodes.length) { stage = 'add'; btn.textContent = `Xác nhận thêm ${okCodes.length} học sinh`; $('#codeIn').readOnly = true; }
+        else { err.textContent = 'Không có mã nào có thể thêm.'; err.classList.remove('hidden'); }
+      } else {
+        const rows = await A.rpc('teacher_add_students_by_code', { p_class_id: c.cls.id, p_codes: okCodes });
+        show(rows); const n = rows.filter((r) => r.status === 'added').length;
+        SL.closeModal(); SL.toast(`Đã thêm ${n} học sinh vào lớp.`); await SL.reload();
+      }
+    } catch (e) { err.textContent = A.toApiError(e).message; err.classList.remove('hidden'); }
+    btn.disabled = false;
+  };
+}
 TABS.members = (el, c) => {
-  const q = (document.getElementById('mq') || {}).value || '';
-  el.innerHTML = `<div class="toolbar"><input id="mq" placeholder="Tìm học sinh…"></div><div id="mList"></div>${c.perms.manageMembers ? '<p class="footer-note">Thêm/xóa học sinh: vào "Quản lý lớp học" → Học sinh.</p>' : ''}`;
-  const draw = () => { const s = $('#mq').value.toLowerCase(), rows = c.members.filter((m) => (c.names[m.student_id] || '').toLowerCase().includes(s));
-    $('#mList').innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>Họ tên</th><th>Chức vụ</th><th>Tổ</th></tr></thead><tbody>${rows.map((m) => {
+  const P = c.perms;
+  el.innerHTML = `<div class="toolbar"><input id="mq" placeholder="Tìm học sinh…">${P.manageMembers ? '<button id="madd">+ Thêm học sinh bằng mã</button>' : ''}</div><div id="mList"></div>`;
+  $('#madd')?.addEventListener('click', () => addByCode(c));
+  const draw = () => { const s = $('#mq').value.toLowerCase(), rows = c.members.filter((m) => ((c.names[m.student_id] || '') + ' ' + (c.codes[m.student_id] || '')).toLowerCase().includes(s));
+    $('#mList').innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>Họ tên</th><th>Mã HS</th><th>Chức vụ</th><th>Tổ</th>${P.manageMembers ? '<th></th>' : ''}</tr></thead><tbody>${rows.map((m) => {
       const o = c.officers.filter((x) => x.user_id === m.student_id).map((x) => ROLE[x.role]).join(', '), t = c.tmembers.filter((x) => x.student_id === m.student_id).map((x) => c.teams.find((tt) => tt.id === x.team_id)?.name).filter(Boolean).join(', ');
-      return `<tr><td>${nm(c, m.student_id)}</td><td>${esc(o) || '—'}</td><td>${esc(t) || '—'}</td></tr>`; }).join('')}</tbody></table></div>` : ui.empty('Không có học sinh phù hợp.'); };
+      return `<tr><td>${nm(c, m.student_id)}</td><td>${esc(c.codes[m.student_id] || '—')}</td><td>${esc(o) || '—'}</td><td>${esc(t) || '—'}</td>${P.manageMembers ? `<td><button class="small danger" data-rmm="${m.student_id}">Xóa khỏi lớp</button></td>` : ''}</tr>`; }).join('')}</tbody></table></div>` : ui.empty(c.members.length ? 'Không có học sinh phù hợp.' : 'Lớp chưa có học sinh. Hãy thêm bằng mã học sinh.');
+    $('#mList').querySelectorAll('[data-rmm]').forEach((b) => (b.onclick = async () => { if (!confirm('Xóa học sinh này khỏi lớp? Chức vụ cán bộ/tổ của bạn ấy trong lớp cũng sẽ bị gỡ.')) return; b.disabled = true;
+      try { await A.rpc('teacher_remove_class_member', { p_class_id: c.cls.id, p_student_id: b.dataset.rmm }); SL.toast('Đã xóa khỏi lớp.'); await SL.reload(); } catch (e) { SL.toast(A.toApiError(e).message); b.disabled = false; } })); };
   $('#mq').oninput = draw; draw();
 };
 
@@ -120,18 +162,24 @@ async function teamUpdates(c, teamId) {
       if (mine) await A.run(sb.from('team_weekly_updates').update(row).eq('id', mine.id)); else await A.run(sb.from('team_weekly_updates').insert({ team_id: teamId, user_id: c.me, week_start: wk, ...row })); }, 'Đã lưu báo cáo tuần.');
 }
 
-/* ---------- Cán bộ lớp ---------- */
+/* ---------- Cán bộ lớp (tối đa 2, quyền như nhau) ---------- */
 TABS.officers = (el, c, refresh) => {
-  const P = c.perms;
-  el.innerHTML = `${P.assignOfficers ? '<div class="toolbar"><button id="onew">+ Bổ nhiệm cán bộ</button></div>' : ''}${c.officers.length ? `<div class="table-wrap"><table><thead><tr><th>Chức vụ</th><th>Học sinh</th><th>Tổ</th><th>Từ ngày</th><th></th></tr></thead><tbody>${c.officers.map((o) => `<tr><td>${ROLE[o.role]}</td><td>${nm(c, o.user_id)}</td><td>${esc(c.teams.find((t) => t.id === o.team_id)?.name || '—')}</td><td>${SL.fmtDate(o.assigned_at)}</td><td>${P.assignOfficers ? `<button class="small danger" data-end="${o.id}">Miễn nhiệm</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : ui.empty('Lớp chưa có cán bộ nào.')}`;
-  $('#onew')?.addEventListener('click', () => {
-    ui.form('Bổ nhiệm cán bộ', `<form><label>Chức vụ *</label><select name="r" id="orole">${Object.entries(ROLE).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select><label>Học sinh *</label><select name="u" required>${memberOpts(c)}</select><div id="otw" class="hidden"><label>Tổ *</label><select name="t">${teamOpts(c)}</select></div></form>`, 'Bổ nhiệm',
-      async (root) => { const v = Object.fromEntries(new FormData(root.querySelector('form')).entries());
-        if (v.r === 'team_leader' && !v.t) throw new A.ApiError('validation', 'Tổ trưởng cần chọn tổ.');
-        await A.rpc('assign_class_officer', { p_class_id: c.cls.id, p_user_id: v.u, p_role: v.r, p_team_id: v.r === 'team_leader' ? v.t : null }); refresh(); }, 'Đã bổ nhiệm.');
-    const tg = () => $('#otw').classList.toggle('hidden', $('#orole').value !== 'team_leader'); $('#orole').onchange = tg; tg();
+  const P = c.perms, main = c.officers.filter((o) => MAIN.includes(o.role)), others = c.officers.filter((o) => !MAIN.includes(o.role));
+  el.innerHTML = `<div class="notice">Mỗi lớp có tối đa 2 cán bộ lớp, quyền như nhau: đăng thông báo, xem tình trạng làm bài của cả lớp và xuất dữ liệu để gửi giáo viên.</div>
+    ${P.assignOfficers ? '<div class="toolbar"><button id="oset">Chọn / đổi cán bộ lớp</button><button class="secondary" id="onew">+ Bổ nhiệm tổ trưởng</button></div>' : ''}
+    <h3>Cán bộ lớp (${main.length}/2)</h3>${main.length ? `<div class="table-wrap"><table><thead><tr><th>Học sinh</th><th>Từ ngày</th></tr></thead><tbody>${main.map((o) => `<tr><td>${nm(c, o.user_id)}</td><td>${SL.fmtDate(o.assigned_at)}</td></tr>`).join('')}</tbody></table></div>` : ui.empty('Lớp chưa có cán bộ lớp.')}
+    ${others.length ? `<h3 style="margin-top:16px">Tổ trưởng</h3><div class="table-wrap"><table><thead><tr><th>Học sinh</th><th>Tổ</th><th>Từ ngày</th><th></th></tr></thead><tbody>${others.map((o) => `<tr><td>${nm(c, o.user_id)}</td><td>${esc(c.teams.find((t) => t.id === o.team_id)?.name || '—')}</td><td>${SL.fmtDate(o.assigned_at)}</td><td>${P.assignOfficers ? `<button class="small danger" data-end="${o.id}">Miễn nhiệm</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
+  $('#oset')?.addEventListener('click', () => {
+    const sel = (n, cur) => `<select name="${n}"><option value="">— Không chọn —</option>${memberOpts(c, cur)}</select>`;
+    ui.form('Chọn cán bộ lớp', `<form><label>Cán bộ lớp thứ nhất</label>${sel('a', main[0]?.user_id)}<label>Cán bộ lớp thứ hai</label>${sel('b', main[1]?.user_id)}<div class="footer-note">Chỉ chọn trong học sinh của lớp. Để trống ô nào thì lớp không có người ở vị trí đó.</div></form>`, 'Lưu',
+      async (root) => { const v = Object.fromEntries(new FormData(root.querySelector('form')).entries()), ids = [v.a, v.b].filter(Boolean);
+        if (ids.length === 2 && ids[0] === ids[1]) throw new A.ApiError('validation', 'Hai vị trí phải là hai học sinh khác nhau.');
+        await A.rpc('set_class_officers', { p_class_id: c.cls.id, p_user_ids: ids }); refresh(); }, 'Đã cập nhật cán bộ lớp.');
   });
-  el.querySelectorAll('[data-end]').forEach((b) => (b.onclick = async () => { if (!confirm('Miễn nhiệm cán bộ này?')) return; b.disabled = true;
+  $('#onew')?.addEventListener('click', () => ui.form('Bổ nhiệm tổ trưởng', `<form><label>Học sinh *</label><select name="u" required>${memberOpts(c)}</select><label>Tổ *</label><select name="t" required>${teamOpts(c)}</select></form>`, 'Bổ nhiệm',
+    async (root) => { const f = root.querySelector('form'); if (!f.reportValidity()) return false; const v = Object.fromEntries(new FormData(f).entries());
+      await A.rpc('assign_class_officer', { p_class_id: c.cls.id, p_user_id: v.u, p_role: 'team_leader', p_team_id: v.t }); refresh(); }, 'Đã bổ nhiệm tổ trưởng.'));
+  el.querySelectorAll('[data-end]').forEach((b) => (b.onclick = async () => { if (!confirm('Miễn nhiệm tổ trưởng này?')) return; b.disabled = true;
     try { await A.rpc('revoke_class_officer', { p_officer_role_id: b.dataset.end }); SL.toast('Đã miễn nhiệm.'); refresh(); } catch (e) { SL.toast(A.toApiError(e).message); b.disabled = false; } }));
 };
 
@@ -194,6 +242,66 @@ TABS.ann = (el, c, refresh) => {
   $('#anew')?.addEventListener('click', () => ui.form('Đăng thông báo', `<form><label>Tiêu đề *</label><input name="t" required maxlength="120"><label>Nội dung *</label><textarea name="b" rows="4" required></textarea><label class="checkrow"><input type="checkbox" name="pin"> Ghim thông báo</label><label>Hết hạn (không bắt buộc)</label><input type="datetime-local" name="exp"></form>`, 'Đăng',
     async (root) => { const f = root.querySelector('form'); if (!f.reportValidity()) return false; const v = Object.fromEntries(new FormData(f).entries());
       await A.run(sb.from('class_announcements').insert({ class_id: c.cls.id, title: v.t.trim(), content: v.b.trim(), posted_by: c.me, is_pinned: !!v.pin, expires_at: v.exp ? toIso(v.exp) : null })); refresh(); }, 'Đã đăng thông báo.'));
+};
+
+/* ---------- Thống kê tình trạng làm bài (cán bộ lớp / giáo viên) ---------- */
+const S = { thr: 240 }, WINDOW_DAYS = 3;
+const dm = (d) => { const x = new Date(d); return String(x.getDate()).padStart(2, '0') + '/' + String(x.getMonth() + 1).padStart(2, '0'); };
+const hm = (min) => (min >= 60 ? Math.floor(min / 60) + 'g' + (min % 60 ? String(min % 60).padStart(2, '0') : '') : min + ' phút');
+function analyse(rows, thr) {
+  const now = Date.now(), lim = now + WINDOW_DAYS * 864e5, stu = new Map(), asg = new Map();
+  rows.forEach((r) => {
+    let st = stu.get(r.student_id); if (!st) stu.set(r.student_id, (st = { id: r.student_id, name: r.display_name || '(không rõ)', code: r.student_code || '', undone: 0, late: 0, minutes: 0 }));
+    let a = asg.get(r.assignment_id); if (!a) asg.set(r.assignment_id, (a = { id: r.assignment_id, title: r.title, subject: r.subject_name, deadline: r.deadline, total: 0, undone: 0 }));
+    a.total++;
+    if (r.status !== 'completed') {
+      a.undone++; st.undone++;
+      const dl = new Date(r.deadline).getTime();
+      if (dl < now) st.late++;
+      if (dl <= lim) st.minutes += r.estimated_minutes || 0;
+    }
+  });
+  const students = [...stu.values()].map((x) => ({ ...x, over: x.minutes > thr })).sort((a, b) => b.undone - a.undone || a.name.localeCompare(b.name, 'vi'));
+  const assignments = [...asg.values()].filter((a) => a.undone > 0).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+  return { students, assignments, n: stu.size };
+}
+function statsText(c, d, thr) {
+  const t = new Date(), stamp = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')} ${dm(t)}/${t.getFullYear()}`;
+  const lines = [`THỐNG KÊ TÌNH TRẠNG LÀM BÀI · Lớp ${c.cls.name} · cập nhật ${stamp}`, ''];
+  if (d.assignments.length) d.assignments.forEach((a) => lines.push(`Ngày ${dm(a.deadline)} có ${a.undone} / ${a.total} bạn chưa hoàn thành bài ${a.title}${a.subject ? ' (' + a.subject + ')' : ''}${new Date(a.deadline) < t ? ' – đã quá hạn' : ''}`));
+  else lines.push('Hiện không có bài nào còn bạn chưa hoàn thành.');
+  lines.push('', `Bảng (quá tải: tổng thời gian còn lại của các bài hạn trong ${WINDOW_DAYS} ngày tới vượt ${thr} phút)`, 'Tên | Số bài chưa hoàn thành | Quá tải');
+  d.students.forEach((s) => lines.push(`${s.name} | ${s.undone} | ${s.over ? 'Có (' + s.minutes + ' phút)' : 'Không'}`));
+  return lines.join('\n');
+}
+function statsCsv(c, d, thr) {
+  const q = (v) => '"' + String(v ?? '').replace(/"/g, '""') + '"', out = [];
+  out.push(['Lớp', c.cls.name].map(q).join(','), '');
+  out.push(['Tên', 'Mã học sinh', 'Số bài chưa hoàn thành', 'Số bài trễ hạn', `Phút còn lại (hạn ${WINDOW_DAYS} ngày tới)`, `Quá tải (>${thr} phút)`].map(q).join(','));
+  d.students.forEach((s) => out.push([s.name, s.code, s.undone, s.late, s.minutes, s.over ? 'Có' : 'Không'].map(q).join(',')));
+  out.push('', ['Bài tập', 'Môn', 'Hạn nộp', 'Chưa hoàn thành', 'Tổng số học sinh'].map(q).join(','));
+  d.assignments.forEach((a) => out.push([a.title, a.subject, new Date(a.deadline).toLocaleString('vi-VN'), a.undone, a.total].map(q).join(',')));
+  return '﻿' + out.join('\r\n');
+}
+TABS.stats = (el, c) => {
+  el.innerHTML = '<div id="sBody"></div>';
+  ui.load($('#sBody'), () => A.rpc('get_class_progress', { p_class_id: c.cls.id }), (rows) => {
+    const B = $('#sBody');
+    const draw = () => {
+      const d = analyse(rows, S.thr), over = d.students.filter((s) => s.over).length;
+      B.innerHTML = `<div class="toolbar"><button id="scopy">Sao chép văn bản</button><button class="secondary" id="scsv">Tải CSV (Excel)</button><label style="margin-left:auto">Ngưỡng quá tải (phút) <input id="sthr" type="number" min="30" step="30" value="${S.thr}" style="width:90px"></label></div>
+        <div class="footer-note">Chỉ tính các bài giáo viên giao cho lớp. "Quá tải" = tổng thời gian ước tính còn lại của các bài chưa hoàn thành có hạn trong ${WINDOW_DAYS} ngày tới (hoặc đã trễ) vượt ngưỡng.</div>
+        <div class="card" style="margin:12px 0"><h3>Bài chưa có đủ người hoàn thành</h3>${d.assignments.length ? d.assignments.map((a) => `<div class="item"><div class="item-main"><div class="item-title">Ngày ${dm(a.deadline)} có ${a.undone} / ${a.total} bạn chưa hoàn thành bài ${esc(a.title)}${a.subject ? ' <span class="muted">(' + esc(a.subject) + ')</span>' : ''}${new Date(a.deadline) < new Date() ? ' <span class="badge red">Quá hạn</span>' : ''}</div></div></div>`).join('') : ui.empty('Tất cả mọi người đã hoàn thành bài.')}</div>
+        <div class="card"><h3>Từng học sinh <span class="muted">(${over} bạn quá tải / ${d.n})</span></h3>${d.students.length ? `<div class="table-wrap"><table><thead><tr><th>Tên</th><th>Số bài chưa hoàn thành</th><th>Trễ hạn</th><th>Quá tải</th></tr></thead><tbody>${d.students.map((s) => `<tr><td>${esc(s.name)}</td><td>${s.undone}</td><td>${s.late || '—'}</td><td>${s.over ? `<span class="badge red">Quá tải · ${hm(s.minutes)}</span>` : '<span class="muted">Không</span>'}</td></tr>`).join('')}</tbody></table></div>` : ui.empty('Lớp chưa có học sinh hoặc chưa có bài tập.')}</div>`;
+      $('#sthr').onchange = (e) => { const v = Math.max(30, parseInt(e.target.value, 10) || 240); S.thr = v; draw(); };
+      $('#scopy').onclick = async () => { const t = statsText(c, d, S.thr);
+        try { await navigator.clipboard.writeText(t); SL.toast('Đã sao chép. Hãy dán vào tin nhắn gửi giáo viên.'); }
+        catch { SL.modal('Sao chép văn bản', `<textarea rows="12" style="width:100%" readonly id="stxt">${esc(t)}</textarea>`, 'Đóng'); $('#modalSubmit').onclick = () => SL.closeModal(); const ta = $('#stxt'); ta.focus(); ta.select(); } };
+      $('#scsv').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([statsCsv(c, d, S.thr)], { type: 'text/csv;charset=utf-8' }));
+        a.download = `thong-ke-${c.cls.name.replace(/[^\w\-]+/g, '_')}-${SL.localDay(new Date())}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+    };
+    draw();
+  });
 };
 
 /* ---------- Báo cáo tuần ---------- */
