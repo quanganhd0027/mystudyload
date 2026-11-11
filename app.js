@@ -136,11 +136,10 @@
     if (!A.configured) return showSetup();
     if (mode === "teacher") return showTeacherAuth(message, v);
     const register = mode === "register", val = (k) => esc(v[k] || "");
-    authShell(`${authTabs(mode)}<h2>${register ? "Tạo tài khoản mới" : "Chào mừng bạn quay lại"}</h2><p class="muted">${register ? "Điền thông tin để bắt đầu sử dụng StudyLoad." : "Nhập mã học sinh hoặc số điện thoại (giáo viên) và mật khẩu."}</p>${message ? `<div class="notice ${/^Lỗi/.test(message) ? "red" : "green"}" role="alert">${esc(message)}</div>` : ""}${register && v.dupCode ? '<button type="button" class="secondary" id="codeReportBtn" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}<form id="authForm" novalidate>${register ? `<label for="authName">Họ và tên *</label><input id="authName" name="displayName" required maxlength="60" autocomplete="name" value="${val("displayName")}"><label for="authIdent">Mã học sinh hoặc số điện thoại *</label><input id="authIdent" name="ident" required maxlength="40" autocomplete="username" placeholder="Học sinh: mã HS · Giáo viên: số điện thoại" value="${val("ident")}"><p class="auth-hint">Đây là thông tin bạn dùng để đăng nhập.</p><label for="authClass">Lớp (nếu có)</label><input id="authClass" name="className" maxlength="40" value="${val("className")}">` : `<label for="authLogin">Mã học sinh hoặc số điện thoại</label><input id="authLogin" name="login" required autocomplete="username" placeholder="Học sinh: mã HS · Giáo viên: số điện thoại" value="${val("login")}"><p class="auth-hint">Tài khoản cũ vẫn có thể dùng tên tài khoản hoặc email.</p>`}<label for="authPassword">Mật khẩu *</label><input id="authPassword" name="password" type="password" required minlength="8" autocomplete="${register ? "new-password" : "current-password"}" placeholder="Ít nhất 8 ký tự">${register ? '<label for="authConfirm">Xác nhận mật khẩu *</label><input id="authConfirm" name="confirm" type="password" required autocomplete="new-password"><p class="auth-hint">Tài khoản mới mặc định là học sinh. Quyền giáo viên do quản trị viên duyệt.</p>' : ""}<label class="checkrow" style="margin-top:14px;font-size:13px"><input type="checkbox" id="wantTeacher" name="wantTeacher" ${v.wantTeacher ? "checked" : ""}> Yêu cầu quyền giáo viên</label><div id="tPhoneBox" class="${v.wantTeacher ? "" : "hidden"}"><label for="tPhone2">Số điện thoại * <span class="muted">(để quản trị viên liên hệ${register ? "; bỏ trống nếu ô trên đã là số điện thoại" : ""})</span></label><input id="tPhone2" name="phone" type="tel" maxlength="20" autocomplete="tel" placeholder="vd: 0912345678" value="${val("phone")}"></div><button class="auth-submit" type="submit">${register ? "Tạo tài khoản" : "Đăng nhập"}</button></form>`);
+    authShell(`${authTabs(mode)}<h2>${register ? "Tạo tài khoản mới" : "Chào mừng bạn quay lại"}</h2><p class="muted">${register ? "Điền thông tin để bắt đầu sử dụng StudyLoad." : "Nhập mã học sinh hoặc số điện thoại (giáo viên) và mật khẩu."}</p>${message ? `<div class="notice ${/^Lỗi/.test(message) ? "red" : "green"}" role="alert">${esc(message)}</div>` : ""}${register && v.dupCode ? '<button type="button" class="secondary" id="codeReportBtn" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}<form id="authForm" novalidate>${register ? `<label for="authName">Họ và tên *</label><input id="authName" name="displayName" required maxlength="60" autocomplete="name" value="${val("displayName")}"><label for="authIdent">Mã học sinh hoặc số điện thoại *</label><input id="authIdent" name="ident" required maxlength="40" autocomplete="username" placeholder="Học sinh: mã HS · Giáo viên: số điện thoại" value="${val("ident")}"><p class="auth-hint">Đây là thông tin bạn dùng để đăng nhập.</p><label for="authClass">Lớp (nếu có)</label><input id="authClass" name="className" maxlength="40" value="${val("className")}">` : `<label for="authLogin">Mã học sinh hoặc số điện thoại</label><input id="authLogin" name="login" required autocomplete="username" placeholder="Học sinh: mã HS · Giáo viên: số điện thoại" value="${val("login")}"><p class="auth-hint">Tài khoản cũ vẫn có thể dùng tên tài khoản hoặc email.</p>`}<label for="authPassword">Mật khẩu *</label><input id="authPassword" name="password" type="password" required minlength="8" autocomplete="${register ? "new-password" : "current-password"}" placeholder="Ít nhất 8 ký tự">${register ? '<label for="authConfirm">Xác nhận mật khẩu *</label><input id="authConfirm" name="confirm" type="password" required autocomplete="new-password"><p class="auth-hint">Tài khoản mới mặc định là học sinh. Giáo viên hãy nhập số điện thoại ở ô trên; quản trị viên sẽ xác minh và cấp quyền.</p>' : ""}<button class="auth-submit" type="submit">${register ? "Tạo tài khoản" : "Đăng nhập"}</button></form>`);
     $("#authRoot").querySelectorAll("[data-auth-mode]").forEach((b) => (b.onclick = () => showAuth(b.dataset.authMode)));
     $("#authForm").onsubmit = register ? registerAccount : loginAccount;
     const rb = $("#codeReportBtn"); if (rb) rb.onclick = () => showCodeReport(v);
-    $("#wantTeacher").onchange = (e) => $("#tPhoneBox").classList.toggle("hidden", !e.target.checked);
   }
   function showCodeReport(v = {}, message = "") {
     const val = (k) => esc(v[k] || "");
@@ -172,7 +171,6 @@
     v.confirm = String(raw.get("confirm") || "");
     const errs = A.auth.validateRegister(v);
     const id = A.auth.parseIdent(v.ident);
-    if (v.wantTeacher && id.kind !== "phone" && !A.auth.validPhone((v.phone || "").replace(/[\s.\-()]/g, ""))) errs.phone = "Hãy nhập số điện thoại hợp lệ để yêu cầu quyền giáo viên.";
     if (Object.keys(errs).length) return showAuth("register", "Lỗi: " + Object.values(errs).join(" "), v);
     if (id.kind === "code") {
       try { if (!(await A.rpc("student_code_available", { p_code: id.value }))) return showAuth("register", "Lỗi: Mã học sinh này đã có tài khoản sử dụng.", { ...v, studentCode: id.value, dupCode: "1" }); }
@@ -191,21 +189,11 @@
     e.preventDefault();
     const form = e.currentTarget, v = formVals(form), pw = String(new FormData(form).get("password") || "");
     if (!v.login || pw.length < 8) return showAuth("login", "Lỗi: Nhập mã học sinh/số điện thoại và mật khẩu (tối thiểu 8 ký tự).", v);
-    const want = !!v.wantTeacher, phone = (v.phone || "").replace(/[\s.\-()]/g, "");
-    if (want && !A.auth.validPhone(phone)) return showAuth("login", "Lỗi: Số điện thoại không hợp lệ (để yêu cầu quyền giáo viên).", { login: v.login, wantTeacher: "1", phone: v.phone });
     busy(form, true);
     let profile;
     try { profile = await A.auth.signIn(v.login, pw); }
-    catch (err) { return showAuth("login", "Lỗi: " + A.toApiError(err).message, { login: v.login, wantTeacher: want ? "1" : "", phone: v.phone }); }
-    let note = "";
-    if (want) {
-      try {
-        const r = await A.rpc("request_teacher_role", { p_phone: phone, p_message: "Yêu cầu khi đăng nhập" });
-        note = r === "sent" ? "Đã gửi yêu cầu quyền giáo viên, vui lòng chờ quản trị viên duyệt." : r === "pending" ? "Yêu cầu quyền giáo viên của bạn đang chờ duyệt." : "Tài khoản này đã có quyền giáo viên.";
-      } catch (e) { note = "Chưa gửi được yêu cầu quyền giáo viên: " + A.toApiError(e).message; }
-    }
+    catch (err) { return showAuth("login", "Lỗi: " + A.toApiError(err).message, { login: v.login }); }
     await enterApp(profile);
-    if (note) showToast(note);
   }
   function applyWorld(w, profile) {
     state = Object.assign(emptyState(), { users: w.users, currentUserId: profile.id, tasks: w.tasks, busy: w.busy, classes: w.classes,
@@ -213,6 +201,7 @@
     world.subjects = w.subjects;
     world.profile = profile;
     document.documentElement.dataset.theme = profile.theme || "light";
+    A.rpc("my_accent").then((a) => { document.documentElement.dataset.accent = a || "default"; }).catch(() => {});
   }
   async function enterApp(profile) {
     showLoading("Đang tải dữ liệu…");
@@ -239,7 +228,7 @@
         if (n > 0) showToast(`Có ${n} yêu cầu "mã học sinh bị trùng" đang chờ bạn xử lý (Người dùng → Mã HS bị trùng).`);
         return;
       }
-      if (await A.rpc("my_code_prompt")) return codeGate(profile);
+      { const why = await A.rpc("my_code_prompt_reason"); if (why) return codeGate(profile, "", false, false, why); }
       if (profile.role === "student" && (await A.rpc("consume_code_recovery_notice"))) {
         showToast("Mã học sinh của bạn đã được lấy lại.");
         $("#modalRoot").innerHTML = `<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>Mã học sinh của bạn đã được lấy lại</h2><p>Quản trị viên đã xác nhận yêu cầu của bạn. Mã học sinh <b>${esc(profile.student_code || "")}</b> hiện thuộc về tài khoản này.</p><button id="recOk">Đã hiểu</button></div></div>`;
@@ -247,10 +236,11 @@
       }
     } catch (e) { /* không chặn người dùng nếu kiểm tra thất bại */ }
   }
-  function codeGate(profile, msg = "", dup = false, sent = false) {
+  function codeGate(profile, msg = "", dup = false, sent = false, why = profile._gateWhy || "") {
+    profile._gateWhy = why;
     $("#modalRoot").innerHTML = `<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>Nhập mã học sinh của bạn để tiếp tục</h2>${sent
       ? `<div class="notice green" role="status">Yêu cầu của bạn đã được gửi, vui lòng chờ quản trị viên xử lý.</div><div class="row"><button class="secondary" id="gOut">Đăng xuất</button></div>`
-      : `<p class="muted">Mã học sinh trên tài khoản này đã được quản trị viên gỡ do bị trùng. Hãy nhập đúng mã học sinh của bạn.</p>${msg ? `<div class="notice red" role="alert">${esc(msg)}</div>` : ""}<form id="gForm" novalidate><label for="gCode">Mã học sinh *</label><input id="gCode" name="code" required maxlength="40" autocomplete="off"><div class="row" style="margin-top:14px"><button type="submit" id="gSubmit">Tiếp tục</button><button type="button" class="secondary" id="gOut">Đăng xuất</button></div></form>${dup ? '<button type="button" class="secondary" id="gDup" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}`}</div></div>`;
+      : `<p class="muted">${why === "not_teacher" ? "Quản trị viên chưa xác minh được số điện thoại này là giáo viên. Hãy nhập mã học sinh của bạn để tiếp tục sử dụng." : "Mã học sinh trên tài khoản này đã được quản trị viên gỡ do bị trùng. Hãy nhập đúng mã học sinh của bạn."}</p>${msg ? `<div class="notice red" role="alert">${esc(msg)}</div>` : ""}<form id="gForm" novalidate><label for="gCode">Mã học sinh *</label><input id="gCode" name="code" required maxlength="40" autocomplete="off"><div class="row" style="margin-top:14px"><button type="submit" id="gSubmit">Tiếp tục</button><button type="button" class="secondary" id="gOut">Đăng xuất</button></div></form>${dup ? '<button type="button" class="secondary" id="gDup" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}`}</div></div>`;
     $("#gOut").onclick = () => { closeModal(); logout(); };
     if (sent) return;
     const f = $("#gForm"), code = $("#gCode"); code.focus();
@@ -326,8 +316,15 @@
       items.splice(1, 0, ["users", "☰ Người dùng"], ["adminclasses", "⌂ Lớp học (Admin)"], ["subjects", "✎ Môn học"], ["audit", "⛨ Nhật ký kiểm toán"]);
       const qa = $("#quickAdd"); if (qa) qa.classList.add("hidden");
     } else { const qa = $("#quickAdd"); if (qa) qa.classList.remove("hidden"); }
+    const dataItem = ["datahub", "▥ Dữ liệu"];
+    if (isAdmin() || current().role === "teacher") items.push(dataItem);
     items.push(["settings", "⚙ Cài đặt"]);
     $("#nav").innerHTML = items.map(([p, l]) => `<button data-page="${p}">${l}</button>`).join("");
+    if (!isAdmin() && current().role === "student") { // cán bộ lớp (học sinh) cũng có trang Dữ liệu
+      const meId = current().id;
+      A.sb.from("class_officer_roles").select("id").eq("user_id", meId).is("ended_at", null).in("role", ["class_president", "academic_vp"]).limit(1)
+        .then((r) => { if (r.data && r.data.length && !$("#nav [data-page=datahub]")) { const st = $("#nav [data-page=settings]"); const b = document.createElement("button"); b.dataset.page = "datahub"; b.textContent = dataItem[1]; st.before(b); b.classList.toggle("active", page === "datahub"); } }, () => {});
+    }
   }
   /* Giao diện ngoại tuyến + tiện ích trạng thái (Loading / Empty / Error / Unauthorized / Saving) */
   function netBanner() {
