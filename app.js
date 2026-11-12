@@ -98,7 +98,7 @@
     document.querySelector(".app").classList.add("hidden");
     const root = $("#authRoot");
     root.classList.remove("hidden");
-    root.innerHTML = `<div class="auth-shell"><section class="auth-brand"><div class="auth-logo">✦ Study<span>Load</span></div><p class="auth-kicker">HỌC TẬP CÓ KẾ HOẠCH</p><h1>Học đúng việc.<br>Đúng thời điểm.</h1><p>Theo dõi nhiệm vụ, sắp xếp thời gian và cùng giáo viên tiến bộ mỗi ngày.</p><div class="auth-decoration"><span>✓</span><span>◷</span><span>↗</span></div></section><section class="auth-panel"><div class="auth-card">${inner}</div></section></div>`;
+    root.innerHTML = `<div class="auth-shell"><section class="auth-brand"><div class="auth-logo">Study<span>Load</span></div><p class="auth-kicker">HỌC TẬP CÓ KẾ HOẠCH</p><h1>Học đúng việc.<br>Đúng thời điểm.</h1><p>Theo dõi nhiệm vụ, sắp xếp thời gian và cùng giáo viên tiến bộ mỗi ngày.</p><div class="auth-decoration"><span>✓</span><span>◷</span><span>↗</span></div></section><section class="auth-panel"><div class="auth-card">${inner}</div></section></div>`;
   }
   function showLoading(msg) {
     authShell(`<h2>${esc(msg)}</h2><div class="skeleton"></div><div class="skeleton short"></div>`);
@@ -238,9 +238,9 @@
   }
   function codeGate(profile, msg = "", dup = false, sent = false, why = profile._gateWhy || "") {
     profile._gateWhy = why;
-    $("#modalRoot").innerHTML = `<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>Nhập mã học sinh của bạn để tiếp tục</h2>${sent
+    $("#modalRoot").innerHTML = `<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>${why === "missing_id" ? (profile.role === "teacher" ? "Nhập số điện thoại để tiếp tục" : "Nhập mã học sinh hoặc số điện thoại để tiếp tục") : "Nhập mã học sinh của bạn để tiếp tục"}</h2>${sent
       ? `<div class="notice green" role="status">Yêu cầu của bạn đã được gửi, vui lòng chờ quản trị viên xử lý.</div><div class="row"><button class="secondary" id="gOut">Đăng xuất</button></div>`
-      : `<p class="muted">${why === "not_teacher" ? "Quản trị viên chưa xác minh được số điện thoại này là giáo viên. Hãy nhập mã học sinh của bạn để tiếp tục sử dụng." : "Mã học sinh trên tài khoản này đã được quản trị viên gỡ do bị trùng. Hãy nhập đúng mã học sinh của bạn."}</p>${msg ? `<div class="notice red" role="alert">${esc(msg)}</div>` : ""}<form id="gForm" novalidate><label for="gCode">Mã học sinh *</label><input id="gCode" name="code" required maxlength="40" autocomplete="off"><div class="row" style="margin-top:14px"><button type="submit" id="gSubmit">Tiếp tục</button><button type="button" class="secondary" id="gOut">Đăng xuất</button></div></form>${dup ? '<button type="button" class="secondary" id="gDup" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}`}</div></div>`;
+      : `<p class="muted">${why === "missing_id" ? "Tài khoản này chưa có mã học sinh hoặc số điện thoại. Học sinh nhập mã học sinh; giáo viên nhập số điện thoại. Quản trị viên sẽ xác minh số điện thoại." : why === "not_teacher" ? "Quản trị viên chưa xác minh được số điện thoại này là giáo viên. Hãy nhập mã học sinh của bạn để tiếp tục sử dụng." : "Mã học sinh trên tài khoản này đã được quản trị viên gỡ do bị trùng. Hãy nhập đúng mã học sinh của bạn."}</p>${msg ? `<div class="notice red" role="alert">${esc(msg)}</div>` : ""}<form id="gForm" novalidate><label for="gCode">${why === "missing_id" ? "Mã học sinh hoặc số điện thoại *" : "Mã học sinh *"}</label><input id="gCode" name="code" required maxlength="40" autocomplete="off"><div class="row" style="margin-top:14px"><button type="submit" id="gSubmit">Tiếp tục</button><button type="button" class="secondary" id="gOut">Đăng xuất</button></div></form>${dup ? '<button type="button" class="secondary" id="gDup" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}`}</div></div>`;
     $("#gOut").onclick = () => { closeModal(); logout(); };
     if (sent) return;
     const f = $("#gForm"), code = $("#gCode"); code.focus();
@@ -249,8 +249,9 @@
       const v = code.value.trim(); if (!v) return codeGate(profile, "Hãy nhập mã học sinh.");
       $("#gSubmit").disabled = true;
       try {
-        await A.rpc("submit_my_student_code", { p_code: v });
-        closeModal(); showToast("Đã cập nhật mã học sinh."); reloadWorld();
+        const idv = why === "missing_id" ? A.auth.parseIdent(v) : { kind: "code" };
+        if (idv.kind === "phone") await A.rpc("submit_my_phone", { p_phone: v }); else await A.rpc("submit_my_student_code", { p_code: v });
+        closeModal(); showToast(idv.kind === "phone" ? "Đã lưu số điện thoại, quản trị viên sẽ xác minh." : "Đã cập nhật mã học sinh."); reloadWorld();
       } catch (err) {
         const m = A.toApiError(err).message;
         codeGate(profile, m, /đã có tài khoản/.test(m), false); const c2 = $("#gCode"); if (c2) c2.value = v; if ($("#gDup")) $("#gDup").dataset.code = v;
@@ -265,6 +266,10 @@
       } catch (err) { codeGate(profile, A.toApiError(err).message, true, false); }
     };
   }
+  document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState !== "visible" || !world.profile || world.profile.role === "admin" || document.querySelector("#modalRoot .modal h2")?.textContent.match(/để tiếp tục/)) return;
+    try { const why = await A.rpc("my_code_prompt_reason"); if (why) codeGate(world.profile, "", false, false, why); } catch (e) { /* bỏ qua */ }
+  });
   async function reloadWorld(msg) {
     try {
       const p = await A.auth.loadProfile();
