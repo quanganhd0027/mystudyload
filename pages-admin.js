@@ -61,21 +61,42 @@ async function accountDetail(id, reload) {
   const officer = (d.officer_roles || []).filter((r) => r.role === 'class_president' || r.role === 'academic_vp');
   const row = (k, v) => `<div class="item"><div class="item-main"><div class="item-meta">${k}</div><div class="item-title">${v || '<span class="muted">—</span>'}</div></div></div>`;
   SL.modal(`Tài khoản: ${esc(d.display_name || d.username)}`, `${row('Họ và tên', esc(d.display_name))}${row('Mã học sinh', esc(d.student_code))}${row('Số điện thoại', esc(d.phone))}${row('Tên tài khoản', esc(d.username))}${isInternal(d.login_email) ? '' : row('Email', esc(d.login_email))}${row('Lớp khai báo', esc(d.class_name))}${row('Vai trò', roleText(d.role) + (d.is_banned ? ' · <span class="badge red">Bị khóa</span>' : ''))}${row('Cán bộ lớp', officer.length ? officer.map((r) => esc(r.class_name)).join(', ') : '')}${row('Lớp tham gia', (d.classes || []).map((c) => esc(c.name)).join(', '))}${row('Ngày tạo', SL.fmtDate(d.created_at))}${row('Đăng nhập gần nhất', d.last_sign_in ? SL.fmtDate(d.last_sign_in) : '')}${row('Màu giao diện (theme)', dot(d.accent) + ' ' + ACCENTS[d.accent]?.[0])}
-    <div class="actions" style="margin-top:12px;flex-wrap:wrap"><button class="small" data-a="role">Đổi vai trò / quyền</button><button class="small secondary" data-a="accent">Đổi màu</button><button class="small secondary" data-a="edit">Sửa thông tin</button><button class="small ${d.is_banned ? 'secondary' : 'danger'}" data-a="lock">${d.is_banned ? 'Mở khóa' : 'Khóa tài khoản'}</button></div>`, 'Đóng');
+    <div class="actions" style="margin-top:12px;flex-wrap:wrap"><button class="small" data-a="role">Đổi vai trò / quyền</button><button class="small secondary" data-a="accent">Đổi màu</button><button class="small secondary" data-a="edit">Chỉnh sửa thông tin</button><button class="small ${d.is_banned ? 'secondary' : 'danger'}" data-a="lock">${d.is_banned ? 'Mở khóa' : 'Khóa tài khoản'}</button><button class="small danger" data-a="del">Xóa tài khoản</button></div>`, 'Đóng');
   const close = () => document.querySelector('[data-close]')?.click();
   $('#modalSubmit').onclick = close;
   const after = () => { reload(); accountDetail(id, reload); };
-  const u = { user_id: id, display_name: d.display_name, username: d.username, theme: d.theme, role: d.role, is_banned: d.is_banned, classes: d.classes, officer };
-  document.querySelectorAll('#modalRoot [data-a]').forEach((b) => (b.onclick = () => ({ role: () => changeRole(u, after), accent: () => changeAccent(u, d.accent, after), edit: () => editUser(u, after), lock: () => toggleLock(u, after) })[b.dataset.a]()));
+  const u = { user_id: id, display_name: d.display_name, username: d.username, theme: d.theme, role: d.role, is_banned: d.is_banned, classes: d.classes, officer, d };
+  document.querySelectorAll('#modalRoot [data-a]').forEach((b) => (b.onclick = () => ({ role: () => changeRole(u, after), accent: () => changeAccent(u, d.accent, after), edit: () => editAccount(u.d, after), lock: () => toggleLock(u, after), del: () => deleteAccount(u, reload) })[b.dataset.a]()));
 }
 function changeAccent(u, cur, reload) {
   ui.form('Đổi màu giao diện', `<p>Màu theme của <b>${esc(u.display_name || u.username)}</b>. Chỉ quản trị viên đổi được.</p><div class="accent-grid">${Object.entries(ACCENTS).map(([k, v]) => `<label class="accent-opt"><input type="radio" name="ac" value="${k}" ${k === cur ? 'checked' : ''}><span class="accent-dot big" style="background:${v[1]}"></span> ${v[0]}</label>`).join('')}</div>`, 'Lưu màu',
     async (root) => { const v = root.querySelector('[name=ac]:checked')?.value; if (!v) throw new Error('Hãy chọn một màu.'); await A.rpc('admin_set_user_accent', { p_user: u.user_id, p_accent: v }); reload(); }, 'Đã đổi màu giao diện.');
 }
-function editUser(u, reload) {
-  ui.form('Sửa tài khoản', `<form><label>Họ tên *</label><input name="n" required maxlength="60" value="${esc(u.display_name || '')}"><label>Tên tài khoản *</label><input name="u" required pattern="[a-z0-9_]{3,30}" value="${esc(u.username)}"><label>Giao diện</label><select name="t"><option value="system" ${u.theme === 'system' ? 'selected' : ''}>Theo hệ thống</option><option value="light" ${u.theme === 'light' ? 'selected' : ''}>Sáng</option><option value="dark" ${u.theme === 'dark' ? 'selected' : ''}>Tối</option></select></form>`, 'Lưu',
-    async (root) => { const f = root.querySelector('form'); if (!f.reportValidity()) return false; const v = Object.fromEntries(new FormData(f).entries());
-      await A.rpc('admin_update_user_profile', { target_user_id: u.user_id, new_username: v.u.toLowerCase(), new_display_name: v.n.trim(), new_theme: v.t }); reload(); }, 'Đã cập nhật tài khoản.');
+function editAccount(d, reload) {
+  const real = isInternal(d.login_email) ? '' : d.login_email;
+  ui.form('Chỉnh sửa tài khoản', `<form><label>Họ và tên *</label><input name="n" required maxlength="60" value="${esc(d.display_name || '')}">
+    <label>Email *</label><input name="e" type="email" required maxlength="120" value="${esc(d.login_email)}"><div class="muted" style="font-size:12px">${isInternal(d.login_email) ? 'Đây là email nội bộ do hệ thống tạo (đăng ký bằng mã HS hoặc SĐT). Đổi sang email thật cũng được; người dùng vẫn đăng nhập bằng mã HS / SĐT.' : 'Email dùng để đăng nhập.'}</div>
+    <label>Mã học sinh</label><input name="c" maxlength="40" value="${esc(d.student_code || '')}">
+    <label>Số điện thoại</label><input name="p" inputmode="tel" maxlength="20" value="${esc(d.phone || '')}">
+    <label>Lớp</label><input name="l" maxlength="40" value="${esc(d.class_name || '')}">
+    <label>Tên tài khoản *</label><input name="u" required pattern="[a-z0-9_]{3,30}" value="${esc(d.username)}">
+    <div class="notice" style="margin-top:12px">Xóa trống cả <b>mã học sinh</b> và <b>số điện thoại</b> của học sinh/giáo viên thì tài khoản bị khóa giao diện cho tới khi người đó nhập lại.</div></form>`, 'Lưu thay đổi',
+    async (root) => {
+      const f = root.querySelector('form'); if (!f.reportValidity()) return false;
+      const v = Object.fromEntries(new FormData(f).entries());
+      await A.rpc('admin_update_account', { p_user: d.user_id, p_display_name: v.n.trim(), p_class_name: v.l.trim(), p_student_code: v.c.trim(), p_phone: v.p.trim(), p_email: v.e.trim() });
+      if (v.u.toLowerCase() !== d.username) await A.rpc('admin_update_user_profile', { target_user_id: d.user_id, new_username: v.u.toLowerCase(), new_display_name: v.n.trim(), new_theme: d.theme });
+      reload();
+    }, 'Đã lưu thay đổi.');
+}
+function deleteAccount(u, reload) {
+  const nm = u.display_name || u.username;
+  ui.form('Xóa tài khoản', `<div class="notice red"><b>Không thể hoàn tác.</b> Xóa hẳn tài khoản <b>${esc(nm)}</b> cùng dữ liệu cá nhân (tiến độ, cài đặt, yêu cầu…). Nếu chỉ muốn chặn đăng nhập, hãy dùng "Khóa tài khoản".</div><form><label>Gõ <b>XOA</b> để xác nhận</label><input name="k" autocomplete="off" placeholder="XOA"></form>`, 'Xóa vĩnh viễn',
+    async (root) => {
+      if (root.querySelector('[name=k]').value.trim().toUpperCase() !== 'XOA') throw new Error('Hãy gõ XOA để xác nhận.');
+      await A.rpc('admin_delete_account', { p_user: u.user_id });
+      document.querySelector('[data-close]')?.click(); reload();
+    }, 'Đã xóa tài khoản.');
 }
 function changeRole(u, reload) {
   const hasCls = (u.classes || []).length > 0;
