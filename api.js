@@ -47,6 +47,22 @@ async function all(make) { // lấy hết dữ liệu theo trang 1000 dòng
 /* ---------- Xác thực ---------- */
 const USER_RE = /^[a-z0-9_]{3,30}$/, EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/, UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = v => typeof v === 'string' && UUID_RE.test(v);
+/* Ô nhập mã học sinh / số điện thoại: không cho gõ ký tự sai thay vì để người dùng nhập sai rồi bị khóa.
+   mode: 'both' (mã 5 số hoặc SĐT), 'code' (chỉ mã 5 số), 'phone' (chỉ SĐT). onState(valid, kind) được gọi mỗi khi đổi. */
+function bindIdentInput(input, mode, onState) {
+  const PH = /^(\+?84|0)[0-9]{8,10}$/;
+  const clean = () => {
+    let v = input.value;
+    if (mode === 'phone' || (mode === 'both' && /^[+0]/.test(v))) v = v.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '').slice(0, 12);
+    else v = v.replace(/[^0-9]/g, '').slice(0, 5);
+    if (v !== input.value) input.value = v;
+    const kind = !v ? 'empty' : PH.test(v) && mode !== 'code' ? 'phone' : /^[0-9]{5}$/.test(v) && mode !== 'phone' ? 'code' : 'partial';
+    input.setCustomValidity(kind === 'partial' ? (mode === 'phone' ? 'Số điện thoại chưa hợp lệ' : 'Mã học sinh phải đủ 5 chữ số') : '');
+    if (onState) onState(kind === 'code' || kind === 'phone', kind, v);
+  };
+  input.setAttribute('inputmode', mode === 'code' ? 'numeric' : 'tel'); input.setAttribute('autocomplete', 'off');
+  input.addEventListener('input', clean); clean();
+}
 const auth = {
   /* Một ô duy nhất "mã học sinh hoặc số điện thoại": số điện thoại Việt Nam → kind 'phone', còn lại → mã học sinh */
   parseIdent(raw) {
@@ -59,7 +75,7 @@ const auth = {
     const e = {}, id = auth.parseIdent(f.ident);
     if (!(f.displayName || '').trim()) e.displayName = 'Họ tên không được để trống.';
     if (!id.value) e.ident = 'Hãy nhập mã học sinh hoặc số điện thoại.';
-    else if (id.kind === 'code' && !/^[\p{L}\p{N}._\-]{2,40}$/u.test(id.value)) e.ident = 'Mã học sinh chỉ gồm chữ, số, dấu chấm, gạch ngang hoặc gạch dưới (2–40 ký tự).';
+    else if (id.kind === 'code' && !/^[0-9]{5}$/.test(id.value)) e.ident = 'Mã học sinh phải gồm đúng 5 chữ số (hoặc nhập số điện thoại).';
     if (f.password.length < 8) e.password = 'Mật khẩu tối thiểu 8 ký tự.';
     if (f.password !== f.confirm) e.confirm = 'Mật khẩu xác nhận không khớp.';
     return e;
@@ -70,7 +86,7 @@ const auth = {
     try {
       r = await sb.auth.signUp({ email: id.email, password: f.password, options: {
         data: { display_name: f.displayName.trim(), student_id: id.kind === 'code' ? id.value : '', class_name: (f.className || '').trim(),
-          ...(id.kind === 'phone' ? { teacher_signup: 'true', phone } : {}) } } });
+          ...(id.kind === 'phone' ? { phone } : {}) } } });
     } catch (e) { throw toApiError(e); }
     if (r.error) {
       if (/already|registered/i.test(r.error.message)) throw new ApiError('conflict', id.kind === 'phone' ? 'Số điện thoại này đã có tài khoản sử dụng.' : 'Mã học sinh này đã có tài khoản sử dụng.');
@@ -80,6 +96,7 @@ const auth = {
     if (r.data.user && r.data.user.identities && r.data.user.identities.length === 0) throw new ApiError('conflict', 'Tài khoản đã tồn tại.');
     return r.data.session ? 'signed_in' : 'confirm_email';
   },
+  bindIdentInput,
   validPhone: (p) => /^(\+?84|0)[0-9]{8,10}$/.test(p || ''),
   validateTeacher(f) {
     const e = {};
@@ -125,7 +142,7 @@ const auth = {
       throw toApiError(r.error);
     }
     try { return await auth.loadProfile(); }
-    catch (e) { await sb.auth.signOut(); throw e; }
+    catch (e) { if (!(e instanceof ApiError && e.kind === 'locked')) await sb.auth.signOut(); throw e; }
   },
   signOut: () => sb.auth.signOut(),
   async session() { if (!sb) return null; const { data } = await sb.auth.getSession(); return data.session; },
@@ -138,13 +155,18 @@ const auth = {
     const s = await auth.session(); if (!s) throw new ApiError('auth', 'Chưa đăng nhập.');
     const p = await run(sb.from('profiles').select('*').eq('id', s.user.id).maybeSingle());
     // RLS chỉ cho đọc hồ sơ khi tài khoản còn hoạt động → rỗng nghĩa là bị khóa hoặc chưa có hồ sơ
-    if (!p) throw new ApiError('auth', 'Tài khoản đã bị khóa hoặc chưa có hồ sơ. Hãy liên hệ quản trị viên.');
+    if (!p) {
+      let li = null; try { li = await rpc('my_lock_info'); } catch (e) { /* bỏ qua */ }
+      if (li && li.locked) throw new ApiError('locked', (li.note || '').trim());
+      throw new ApiError('auth', 'Tài khoản đã bị khóa hoặc chưa có hồ sơ. Hãy liên hệ quản trị viên.');
+    }
     return auth._norm(p, s);
   },
+  /* Đổi mã học sinh HOẶC số điện thoại (máy chủ kiểm tra: đúng 5 chữ số, không trùng, không dùng cả hai) */
+  async updateMyIdentity(code, phone) { await rpc('update_my_identity', { p_code: code || '', p_phone: phone || '' }); },
   async updateMyProfile(patch) {
     const s = await auth.session(), row = {};
     if ('display_name' in patch) row.display_name = (patch.display_name || '').trim() || null;
-    if ('student_code' in patch) row.student_id = (patch.student_code || '').trim() || null;
     if ('class_name' in patch) row.class_name = (patch.class_name || '').trim() || null;
     if ('theme' in patch) row.theme = patch.theme;
     if (!Object.keys(row).length) return null;

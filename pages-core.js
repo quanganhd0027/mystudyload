@@ -15,30 +15,81 @@ SL.pages.profile = {
     el.innerHTML = `<div class="grid"><div class="card span-6"><h2>Thông tin tài khoản</h2>
       <dl class="kv"><dt>Email</dt><dd>${esc(p.email)}</dd><dt>Tên tài khoản</dt><dd>${esc(p.username)}</dd><dt>Vai trò</dt><dd><span class="badge">${SL.roleLabel(p.role)}</span></dd><dt>Ngày tạo</dt><dd>${SL.fmtDate(p.created_at)}</dd></dl>
       <form id="profileForm" style="margin-top:14px"><label>Họ tên / tên hiển thị *</label><input name="display_name" required maxlength="60" value="${esc(p.display_name)}">
-      <label>Mã học sinh</label><input name="student_code" maxlength="40" value="${esc(p.student_code || '')}">
+      <label>Mã học sinh (đúng 5 chữ số)</label><input name="student_code" id="pfCode" maxlength="5" value="${esc(p.student_code || '')}">
+      <label>Số điện thoại</label><input name="phone" id="pfPhone" maxlength="12" value="${esc(p.phone || '')}">
+      <p class="footer-note" id="pfNote">Chỉ dùng <b>một</b> trong hai: mã học sinh hoặc số điện thoại.</p>
       <label>Lớp (khai báo)</label><input name="class_name" maxlength="40" value="${esc(p.class_name || '')}">
       <div id="profileMsg" class="notice red hidden" role="alert" style="margin-top:12px"></div>
-      <div class="row" style="margin-top:14px"><button type="submit">Lưu hồ sơ</button></div></form>
+      <div id="dupBox" class="hidden" style="margin-top:10px"><button type="button" class="secondary" id="dupBtn">Mã học sinh của bạn bị dùng? Báo cho quản trị viên</button></div>
+      <div class="row" style="margin-top:14px"><button type="submit" id="pfSave">Lưu hồ sơ</button></div></form>
       <p class="footer-note">Vai trò, email và tên tài khoản chỉ quản trị viên được đổi. "Lớp" ở đây chỉ để tham khảo; lớp chính thức do quản trị viên thêm bạn vào.</p></div>
       <div class="card span-6"><div class="section-head"><h2>Yêu cầu của tôi</h2><span id="reqBtn"></span></div><div id="reqList"></div></div></div>`;
+    const codeIn = $('#pfCode'), phoneIn = $('#pfPhone'), saveBtn = $('#pfSave'), legacyBoth = !!(p.student_code && p.phone);
+    const refreshIdent = () => {
+      const c = codeIn.value.trim(), ph = phoneIn.value.trim(), isAdm = p.role === 'admin';
+      if (!legacyBoth) { phoneIn.disabled = !!c; codeIn.disabled = !!ph; }
+      const bad = (c && !/^[0-9]{5}$/.test(c)) || (ph && !A.auth.validPhone(ph)) || (c && ph) || (!c && !ph && !isAdm);
+      saveBtn.disabled = !!bad;
+      $('#pfNote').innerHTML = legacyBoth && c && ph ? '<b>Tài khoản cũ đang có cả hai.</b> Hãy xóa một trong hai rồi lưu.' : !c && !ph && !isAdm ? '<b>Cần có mã học sinh hoặc số điện thoại.</b> Hãy nhập một trong hai.' : 'Chỉ dùng <b>một</b> trong hai: mã học sinh hoặc số điện thoại.';
+    };
+    A.auth.bindIdentInput(codeIn, 'code', refreshIdent); A.auth.bindIdentInput(phoneIn, 'phone', refreshIdent);
+    $('#dupBtn').onclick = () => reportDup(codeIn.value.trim());
     $('#profileForm').onsubmit = async (e) => {
       e.preventDefault();
-      const f = e.currentTarget, v = Object.fromEntries(new FormData(f).entries()), btn = f.querySelector('button'), msg = $('#profileMsg');
-      msg.classList.add('hidden');
+      const f = e.currentTarget, v = Object.fromEntries(new FormData(f).entries()), btn = saveBtn, msg = $('#profileMsg');
+      msg.classList.add('hidden'); $('#dupBox').classList.add('hidden');
       if (!v.display_name.trim()) { msg.textContent = 'Họ tên không được để trống.'; msg.classList.remove('hidden'); return; }
       btn.disabled = true; btn.textContent = 'Đang lưu…';
       try {
-        const np = await A.auth.updateMyProfile({ display_name: v.display_name.trim(), student_code: v.student_code.trim(), class_name: v.class_name.trim() });
+        const newCode = (v.student_code || '').trim(), newPhone = (v.phone || '').trim();
+        if (newCode !== (p.student_code || '') || newPhone !== (p.phone || '')) await A.auth.updateMyIdentity(newCode, newPhone);
+        const np = await A.auth.updateMyProfile({ display_name: v.display_name.trim(), class_name: v.class_name.trim() });
         SL.refreshProfile(np); const me = SL.current(); me.name = np.display_name || np.username;
         document.querySelector('.side-note').textContent = 'Tài khoản: ' + me.name + ' · ' + SL.roleLabel(np.role);
         SL.toast('Đã cập nhật hồ sơ.');
-      } catch (err) { msg.textContent = A.toApiError(err).message.replace(/duplicate key.*student_id.*/i, 'Mã học sinh đã được dùng.'); msg.classList.remove('hidden'); }
-      btn.disabled = false; btn.textContent = 'Lưu hồ sơ';
+      } catch (err) { const m = A.toApiError(err).message; msg.textContent = m; msg.classList.remove('hidden'); if (/Mã học sinh này đã có tài khoản/.test(m)) $('#dupBox').classList.remove('hidden'); }
+      btn.textContent = 'Lưu hồ sơ'; refreshIdent();
     };
+    if (p.role === 'teacher') { const tc = document.createElement('div'); tc.className = 'card span-12'; el.querySelector('.grid').appendChild(tc); drawTeacherCard(tc); }
     if (p.role === 'admin') { $('#reqList').innerHTML = ui.empty('Quản trị viên không cần gửi yêu cầu.'); return; }
     if (p.role === 'student') { $('#reqBtn').innerHTML = `<button class="small" id="newReq">Yêu cầu quyền giáo viên</button>`; $('#newReq').onclick = () => openRequestForm(drawRequests); }
     drawRequests();
   }
+};
+function reportDup(code) {
+  const p = SL.profile();
+  ui.form('Mã học sinh của bạn bị dùng?', `<form><p class="muted">Quản trị viên sẽ đối chiếu và xử lý. Điền thông tin của bạn:</p><label>Họ và tên *</label><input name="name" required maxlength="80" value="${esc(p.display_name || '')}">
+    <label>Lớp *</label><input name="cls" required maxlength="40" value="${esc(p.class_name || '')}"><label>Mã học sinh của bạn *</label><input name="code" required maxlength="5" inputmode="numeric" value="${esc(code || '')}">
+    <label>Cách liên hệ (email hoặc SĐT, không bắt buộc)</label><input name="contact" maxlength="100"></form>`, 'Gửi yêu cầu',
+    async (root) => { const f = root.querySelector('form'); if (!f.reportValidity()) return false; const v = Object.fromEntries(new FormData(f).entries());
+      await A.rpc('report_student_code_conflict', { p_name: v.name.trim(), p_class: v.cls.trim(), p_code: v.code.trim(), p_contact: v.contact.trim() || null }); }, 'Đã gửi yêu cầu cho quản trị viên.');
+}
+/* Giáo viên tự chọn môn dạy, xem lớp chủ nhiệm / lớp dạy, nhận lớp chưa có chủ nhiệm */
+function drawTeacherCard(card) {
+  ui.load(card, () => A.rpc('my_teacher_info'), (info) => {
+    const subs = SL.subjects(), mine = new Set(info.subjects || []);
+    card.innerHTML = `<h2>Giáo viên: môn dạy và lớp</h2><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+      <div><label>Môn dạy (chọn nhiều)</label><div id="tsubs" style="max-height:200px;overflow:auto;border:1px solid var(--line,#ddd);border-radius:8px;padding:6px 10px">${subs.length ? subs.map((s) => `<label class="checkrow" style="display:flex;gap:8px;padding:4px 0"><input type="checkbox" value="${s.id}" ${mine.has(s.id) ? 'checked' : ''}> ${esc(s.name)}</label>`).join('') : '<span class="muted">Chưa có môn học nào. Hãy nhờ quản trị viên thêm.</span>'}</div><div class="row" style="margin-top:8px"><button class="small" id="tsave">Lưu môn dạy</button></div></div>
+      <div><label>Lớp chủ nhiệm</label>${(info.homeroom_classes || []).length ? info.homeroom_classes.map((c) => `<div class="item"><div class="item-title">${esc(c.name)}</div></div>`).join('') : '<div class="muted">Chưa chủ nhiệm lớp nào.</div>'}
+        <label style="margin-top:10px">Lớp bạn đang dạy (đã giao bài)</label>${(info.teaching_classes || []).length ? (info.teaching_classes || []).map((c) => `<span class="badge">${esc(c.name)}</span> `).join('') : '<div class="muted">Chưa giao bài cho lớp nào.</div>'}
+        <div class="row" style="margin-top:12px"><button class="small secondary" id="tclaim">Nhận lớp chưa có chủ nhiệm</button></div>
+        <p class="footer-note">Bạn tự tạo được tối đa 1 lớp (đã tạo: ${info.created_classes}/1). Có thể nhận thêm lớp chưa có chủ nhiệm. Bạn giao bài được cho mọi lớp.</p></div></div>`;
+    $('#tsave').onclick = async (e) => { e.target.disabled = true; try { await A.rpc('set_my_subjects', { p_subject_ids: [...card.querySelectorAll('#tsubs input:checked')].map((x) => x.value) }); SL.toast('Đã lưu môn dạy.'); } catch (er) { SL.toast(A.toApiError(er).message); } e.target.disabled = false; };
+    $('#tclaim').onclick = () => SL.claimClass(() => drawTeacherCard(card));
+  });
+}
+SL.claimClass = async function (done) {
+  let rows; try { rows = await A.rpc('list_unclaimed_classes'); } catch (e) { return SL.toast(A.toApiError(e).message); }
+  if (!rows.length) return SL.toast('Hiện không có lớp nào chưa có giáo viên chủ nhiệm.');
+  ui.form('Nhận lớp chủ nhiệm', `<form><p class="muted">Các lớp đang chưa có giáo viên chủ nhiệm:</p>${rows.map((c, i) => `<label class="checkrow" style="display:flex;gap:8px;padding:6px 0"><input type="radio" name="cid" value="${c.id}" ${i === 0 ? 'checked' : ''}><span><b>${esc(c.name)}</b> <span class="muted">${esc(c.academic_year || '')} · ${c.student_count} học sinh</span></span></label>`).join('')}</form>`, 'Nhận lớp',
+    async (root) => { const id = root.querySelector('[name=cid]:checked')?.value; if (!id) throw new Error('Hãy chọn một lớp.'); await A.rpc('teacher_claim_class', { p_class_id: id }); await SL.reload(); if (done) done(); }, 'Đã nhận lớp. Bạn là giáo viên chủ nhiệm.');
+};
+/* Giáo viên giao bài cho BẤT KỲ lớp nào: chọn lớp rồi giao */
+SL.assignPick = async function () {
+  let rows; try { rows = await A.run(A.sb.from('classes').select('id,name,academic_year').order('name')); } catch (e) { return SL.toast(A.toApiError(e).message); }
+  if (!rows.length) return SL.toast('Chưa có lớp nào trong hệ thống.');
+  ui.form('Giao bài cho lớp', `<form><label>Chọn lớp *</label><select name="cid">${rows.map((c) => `<option value="${c.id}">${esc(c.name)}${c.academic_year ? ' · ' + esc(c.academic_year) : ''}</option>`).join('')}</select></form>`, 'Tiếp tục',
+    async (root) => { const id = root.querySelector('[name=cid]').value, nm = rows.find((c) => c.id === id)?.name; setTimeout(() => SL.assignToClass(id, nm), 50); }, '');
 };
 function drawRequests() {
   const box = $('#reqList'); if (!box) return;
@@ -63,18 +114,18 @@ async function assignContext(classId) { // trả về {source, subjects} theo qu
   if (SL.isAdmin()) return { source: 'admin', subjects: all };
   const isVp = await A.rpc('has_main_officer_role', { target_class_id: classId });
   if (isVp) return { source: 'academic_vp', subjects: all };
-  const rows = await A.run(A.sb.from('class_subject_teachers').select('subject_id').eq('class_id', classId).eq('teacher_id', me.id));
-  const ids = new Set(rows.map((r) => r.subject_id));
+  if (me.role !== 'teacher') return { source: 'teacher', subjects: [] };
+  const info = await A.rpc('my_teacher_info'), ids = new Set(info.subjects || []);
   return { source: 'teacher', subjects: all.filter((s) => ids.has(s.id)) };
 }
-SL.assignToClass = async function (classId) {
-  const me = SL.current(), cls = SL.state().classes.find((c) => c.id === classId);
-  if (!cls) return SL.toast('Không tìm thấy lớp.');
+SL.assignToClass = async function (classId, className) {
+  const me = SL.current(), cls = SL.state().classes.find((c) => c.id === classId) || { id: classId, name: className || 'lớp', studentIds: null };
+  if (!className && !SL.state().classes.find((c) => c.id === classId)) return SL.toast('Không tìm thấy lớp.');
   let ctx;
   try { ctx = await assignContext(classId); } catch (e) { return SL.toast(A.toApiError(e).message); }
-  if (!ctx.subjects.length) return SL.toast('Bạn chưa được phân công môn nào trong lớp này nên chưa thể giao bài.');
-  if (!cls.studentIds.length) return SL.toast('Lớp chưa có học sinh nào để giao bài.');
-  ui.form(`Giao nhiệm vụ cho lớp ${esc(cls.name)}`, `<form><p class="muted">Nhiệm vụ sẽ được giao cho ${cls.studentIds.length} học sinh của lớp.</p><div class="form-grid">
+  if (!ctx.subjects.length) return SL.toast(SL.isAdmin() || me.role !== 'teacher' ? 'Không có môn học nào để giao.' : 'Hãy chọn môn dạy của bạn trong Hồ sơ trước khi giao bài.');
+  if (cls.studentIds && !cls.studentIds.length) return SL.toast('Lớp chưa có học sinh nào để giao bài.');
+  ui.form(`Giao nhiệm vụ cho lớp ${esc(cls.name)}`, `<form><p class="muted">Nhiệm vụ sẽ được giao cho ${cls.studentIds ? cls.studentIds.length + ' ' : 'tất cả '}học sinh của lớp.</p><div class="form-grid">
     <div class="full"><label>Tiêu đề *</label><input name="title" required maxlength="150"></div>
     <div class="full"><label>Mô tả</label><textarea name="description" rows="3"></textarea></div>
     <div><label>Môn học *</label><select name="subject_id" required>${ctx.subjects.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></div>

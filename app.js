@@ -136,9 +136,10 @@
     if (!A.configured) return showSetup();
     if (mode === "teacher") return showTeacherAuth(message, v);
     const register = mode === "register", val = (k) => esc(v[k] || "");
-    authShell(`${authTabs(mode)}<h2>${register ? "Tạo tài khoản mới" : "Chào mừng bạn quay lại"}</h2><p class="muted">${register ? "Điền thông tin để bắt đầu sử dụng StudyLoad." : "Nhập mã học sinh hoặc số điện thoại (giáo viên) và mật khẩu."}</p>${message ? `<div class="notice ${/^Lỗi/.test(message) ? "red" : "green"}" role="alert">${esc(message)}</div>` : ""}${register && v.dupCode ? '<button type="button" class="secondary" id="codeReportBtn" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}<form id="authForm" novalidate>${register ? `<label for="authName">Họ và tên *</label><input id="authName" name="displayName" required maxlength="60" autocomplete="name" value="${val("displayName")}"><label for="authIdent">Mã học sinh hoặc số điện thoại *</label><input id="authIdent" name="ident" required maxlength="40" autocomplete="username" placeholder="Học sinh: mã HS · Giáo viên: số điện thoại" value="${val("ident")}"><p class="auth-hint">Đây là thông tin bạn dùng để đăng nhập.</p><label for="authClass">Lớp (nếu có)</label><input id="authClass" name="className" maxlength="40" value="${val("className")}">` : `<label for="authLogin">Mã học sinh hoặc số điện thoại</label><input id="authLogin" name="login" required autocomplete="username" placeholder="Học sinh: mã HS · Giáo viên: số điện thoại" value="${val("login")}"><p class="auth-hint">Tài khoản cũ vẫn có thể dùng tên tài khoản hoặc email.</p>`}<label for="authPassword">Mật khẩu *</label><input id="authPassword" name="password" type="password" required minlength="8" autocomplete="${register ? "new-password" : "current-password"}" placeholder="Ít nhất 8 ký tự">${register ? '<label for="authConfirm">Xác nhận mật khẩu *</label><input id="authConfirm" name="confirm" type="password" required autocomplete="new-password"><p class="auth-hint">Tài khoản mới mặc định là học sinh. Giáo viên hãy nhập số điện thoại ở ô trên; quản trị viên sẽ xác minh và cấp quyền.</p>' : ""}<button class="auth-submit" type="submit">${register ? "Tạo tài khoản" : "Đăng nhập"}</button></form>`);
+    authShell(`${authTabs(mode)}<h2>${register ? "Tạo tài khoản mới" : "Chào mừng bạn quay lại"}</h2><p class="muted">${register ? "Điền thông tin để bắt đầu sử dụng StudyLoad." : "Nhập mã học sinh hoặc số điện thoại và mật khẩu."}</p>${message ? `<div class="notice ${/^Lỗi/.test(message) ? "red" : "green"}" role="alert">${esc(message)}</div>` : ""}${register && v.dupCode ? '<button type="button" class="secondary" id="codeReportBtn" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}<form id="authForm" novalidate>${register ? `<label for="authName">Họ và tên *</label><input id="authName" name="displayName" required maxlength="60" autocomplete="name" value="${val("displayName")}"><label for="authIdent">Mã học sinh hoặc số điện thoại *</label><input id="authIdent" name="ident" required maxlength="40" autocomplete="username" placeholder="Mã học sinh (5 chữ số) hoặc số điện thoại" value="${val("ident")}"><p class="auth-hint">Chỉ dùng <b>một</b> trong hai: mã học sinh gồm đúng 5 chữ số, hoặc số điện thoại. Đây là thông tin bạn dùng để đăng nhập.</p><label for="authClass">Lớp (nếu có)</label><input id="authClass" name="className" maxlength="40" value="${val("className")}">` : `<label for="authLogin">Mã học sinh hoặc số điện thoại</label><input id="authLogin" name="login" required autocomplete="username" placeholder="Mã học sinh hoặc số điện thoại" value="${val("login")}"><p class="auth-hint">Tài khoản cũ vẫn có thể dùng tên tài khoản hoặc email.</p>`}<label for="authPassword">Mật khẩu *</label><input id="authPassword" name="password" type="password" required minlength="8" autocomplete="${register ? "new-password" : "current-password"}" placeholder="Ít nhất 8 ký tự">${register ? '<label for="authConfirm">Xác nhận mật khẩu *</label><input id="authConfirm" name="confirm" type="password" required autocomplete="new-password"><p class="auth-hint">Tài khoản mới mặc định là học sinh. Giáo viên hãy dùng tab "Đăng ký giáo viên".</p>' : ""}<button class="auth-submit" type="submit">${register ? "Tạo tài khoản" : "Đăng nhập"}</button></form>`);
     $("#authRoot").querySelectorAll("[data-auth-mode]").forEach((b) => (b.onclick = () => showAuth(b.dataset.authMode)));
     $("#authForm").onsubmit = register ? registerAccount : loginAccount;
+    if (register && $("#authIdent")) A.auth.bindIdentInput($("#authIdent"), "both");
     const rb = $("#codeReportBtn"); if (rb) rb.onclick = () => showCodeReport(v);
   }
   function showCodeReport(v = {}, message = "") {
@@ -192,7 +193,7 @@
     busy(form, true);
     let profile;
     try { profile = await A.auth.signIn(v.login, pw); }
-    catch (err) { return showAuth("login", "Lỗi: " + A.toApiError(err).message, { login: v.login }); }
+    catch (err) { if (A.toApiError(err).kind === "locked") return showLock(A.toApiError(err).message); return showAuth("login", "Lỗi: " + A.toApiError(err).message, { login: v.login }); }
     await enterApp(profile);
   }
   function applyWorld(w, profile) {
@@ -219,6 +220,7 @@
     schedule(profile.id);
     render();
     afterLoginChecks(profile);
+    window.SLPush?.sync();
   }
   /* Sau khi đăng nhập: (1) nếu mã HS bị gỡ thì bắt nhập lại; (2) báo "mã học sinh của bạn đã được lấy lại" */
   async function afterLoginChecks(profile) {
@@ -238,15 +240,16 @@
   }
   function codeGate(profile, msg = "", dup = false, sent = false, why = profile._gateWhy || "") {
     profile._gateWhy = why;
-    $("#modalRoot").innerHTML = `<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>${why === "missing_id" ? (profile.role === "teacher" ? "Nhập số điện thoại để tiếp tục" : "Nhập mã học sinh hoặc số điện thoại để tiếp tục") : "Nhập mã học sinh của bạn để tiếp tục"}</h2>${sent
+    $("#modalRoot").innerHTML = `<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true"><h2>${why === "missing_id" ? "Nhập mã học sinh hoặc số điện thoại để tiếp tục" : "Nhập mã học sinh của bạn để tiếp tục"}</h2>${sent
       ? `<div class="notice green" role="status">Yêu cầu của bạn đã được gửi, vui lòng chờ quản trị viên xử lý.</div><div class="row"><button class="secondary" id="gOut">Đăng xuất</button></div>`
-      : `<p class="muted">${why === "missing_id" ? "Tài khoản này chưa có mã học sinh hoặc số điện thoại. Học sinh nhập mã học sinh; giáo viên nhập số điện thoại. Quản trị viên sẽ xác minh số điện thoại." : why === "not_teacher" ? "Quản trị viên chưa xác minh được số điện thoại này là giáo viên. Hãy nhập mã học sinh của bạn để tiếp tục sử dụng." : "Mã học sinh trên tài khoản này đã được quản trị viên gỡ do bị trùng. Hãy nhập đúng mã học sinh của bạn."}</p>${msg ? `<div class="notice red" role="alert">${esc(msg)}</div>` : ""}<form id="gForm" novalidate><label for="gCode">${why === "missing_id" ? "Mã học sinh hoặc số điện thoại *" : "Mã học sinh *"}</label><input id="gCode" name="code" required maxlength="40" autocomplete="off"><div class="row" style="margin-top:14px"><button type="submit" id="gSubmit">Tiếp tục</button><button type="button" class="secondary" id="gOut">Đăng xuất</button></div></form>${dup ? '<button type="button" class="secondary" id="gDup" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}`}</div></div>`;
+      : `<p class="muted">${why === "missing_id" ? "Tài khoản này chưa có mã học sinh hoặc số điện thoại. Chỉ cần nhập <b>một trong hai</b>: mã học sinh gồm đúng 5 chữ số, hoặc số điện thoại." : why === "not_teacher" ? "Quản trị viên chưa xác minh được số điện thoại này là giáo viên. Hãy nhập mã học sinh của bạn để tiếp tục sử dụng." : "Mã học sinh trên tài khoản này đã được quản trị viên gỡ do bị trùng. Hãy nhập đúng mã học sinh của bạn."}</p>${msg ? `<div class="notice red" role="alert">${esc(msg)}</div>` : ""}<form id="gForm" novalidate><label for="gCode">${why === "missing_id" ? "Mã học sinh hoặc số điện thoại *" : "Mã học sinh *"}</label><input id="gCode" name="code" required maxlength="13" autocomplete="off" placeholder="${why === "missing_id" ? "5 chữ số hoặc số điện thoại" : "5 chữ số"}"><div class="row" style="margin-top:14px"><button type="submit" id="gSubmit" disabled>Tiếp tục</button><button type="button" class="secondary" id="gOut">Đăng xuất</button></div></form>${dup ? '<button type="button" class="secondary" id="gDup" style="width:100%;margin-top:10px">Mã học sinh của bạn bị dùng?</button>' : ""}`}</div></div>`;
     $("#gOut").onclick = () => { closeModal(); logout(); };
     if (sent) return;
     const f = $("#gForm"), code = $("#gCode"); code.focus();
+    A.auth.bindIdentInput(code, why === "missing_id" ? "both" : "code", (ok) => { $("#gSubmit").disabled = !ok; });
     f.onsubmit = async (e) => {
       e.preventDefault();
-      const v = code.value.trim(); if (!v) return codeGate(profile, "Hãy nhập mã học sinh.");
+      const v = code.value.trim(); if (!v) return;
       $("#gSubmit").disabled = true;
       try {
         const idv = why === "missing_id" ? A.auth.parseIdent(v) : { kind: "code" };
@@ -254,7 +257,7 @@
         closeModal(); showToast(idv.kind === "phone" ? "Đã lưu số điện thoại, quản trị viên sẽ xác minh." : "Đã cập nhật mã học sinh."); reloadWorld();
       } catch (err) {
         const m = A.toApiError(err).message;
-        codeGate(profile, m, /đã có tài khoản/.test(m), false); const c2 = $("#gCode"); if (c2) c2.value = v; if ($("#gDup")) $("#gDup").dataset.code = v;
+        codeGate(profile, m, /đã có tài khoản/.test(m), false); const c2 = $("#gCode"); if (c2) { c2.value = v; c2.dispatchEvent(new Event("input")); } if ($("#gDup")) $("#gDup").dataset.code = v;
       }
     };
     const d = $("#gDup");
@@ -268,6 +271,7 @@
   }
   document.addEventListener("visibilitychange", async () => {
     if (document.visibilityState !== "visible" || !world.profile || world.profile.role === "admin" || document.querySelector("#modalRoot .modal h2")?.textContent.match(/để tiếp tục/)) return;
+    try { const li = await A.rpc("my_lock_info"); if (li && li.locked) return showLock((li.note || "").trim()); } catch (e) { /* bỏ qua */ }
     try { const why = await A.rpc("my_code_prompt_reason"); if (why) codeGate(world.profile, "", false, false, why); } catch (e) { /* bỏ qua */ }
   });
   async function reloadWorld(msg) {
@@ -280,7 +284,18 @@
       buildNav();
       render();
       if (msg) showToast(msg);
-    } catch (err) { showToast("Không tải lại được: " + A.toApiError(err).message); }
+    } catch (err) { const e3 = A.toApiError(err); if (e3.kind === "locked") return showLock(e3.message); showToast("Không tải lại được: " + e3.message); }
+  }
+  /* Màn hình khóa: nền đỏ, chỉ có dòng chữ và ghi chú của admin, không có nút nào */
+  let lockTimer = null;
+  function showLock(note) {
+    try { A.sync.stop(); } catch (e) {}
+    clearInterval(timerInterval); $("#modalRoot").innerHTML = "";
+    document.querySelector(".app")?.classList.add("hidden");
+    const r = $("#authRoot"); r.classList.remove("hidden");
+    r.innerHTML = `<div id="lockScreen" role="alert" style="position:fixed;inset:0;z-index:99999;background:#b71c1c;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px"><h1 style="margin:0;font-size:clamp(28px,6vw,56px);line-height:1.2">Tài khoản của bạn đã bị khoá</h1>${note ? `<p style="margin:24px 0 0;font-size:clamp(16px,2.4vw,22px);max-width:680px;white-space:pre-wrap">${esc(note)}</p>` : ""}</div>`;
+    clearInterval(lockTimer);
+    lockTimer = setInterval(async () => { try { const li = await A.rpc("my_lock_info"); if (li && !li.locked) location.reload(); } catch (e) { /* bỏ qua */ } }, 30000);
   }
   async function logout(message) {
     A.sync.stop();
@@ -300,6 +315,7 @@
       await enterApp(p);
     } catch (err) {
       const e2 = A.toApiError(err);
+      if (e2.kind === "locked") return showLock(e2.message);
       if (e2.kind === "auth") return showAuth("login", e2.message);
       showFatal(e2.message);
     }
@@ -1143,7 +1159,7 @@
         .reverse();
     pageHead("Thông báo", "Nhắc hạn cục bộ, cảnh báo và hoạt động dự án.");
     $("#content").innerHTML =
-      `<div class="section-head"><div class="muted">Nhắc hạn mặc định: 24 giờ và 2 giờ trước hạn. Không có thông báo đẩy khi ứng dụng đóng.</div><button class="secondary" data-action="mark-read">Đánh dấu đã đọc</button></div><div class="card"><h2>Hộp thư thông báo</h2>${notificationList(ns)}</div><div class="card" style="margin-top:16px"><h2>Kiểm tra nhắc hạn</h2><p class="muted">Ứng dụng kiểm tra khi đang mở; thông báo lỗi thời sẽ bị bỏ qua. Nếu bật “Chỉ nhắc trong thời gian học”, thông báo thường được xếp hàng tới khung rảnh tiếp theo.</p><button data-action="check-reminders">Kiểm tra ngay</button></div>`;
+      `<div class="section-head"><div class="muted">Nhắc hạn mặc định: 24 giờ và 2 giờ trước hạn. Bật “Thông báo trên màn hình máy tính” bên dưới để nhận cả khi đã đóng tab.</div><button class="secondary" data-action="mark-read">Đánh dấu đã đọc</button></div><div class="card"><h2>Hộp thư thông báo</h2>${notificationList(ns)}</div><div class="card" style="margin-top:16px"><h2>Kiểm tra nhắc hạn</h2><p class="muted">Ứng dụng kiểm tra khi đang mở; thông báo lỗi thời sẽ bị bỏ qua. Nếu bật “Chỉ nhắc trong thời gian học”, thông báo thường được xếp hàng tới khung rảnh tiếp theo.</p><button data-action="check-reminders">Kiểm tra ngay</button></div>`;
     SL.afterNotifications?.($("#content"));
   }
   function notificationList(ns) {
