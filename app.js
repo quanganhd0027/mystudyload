@@ -682,13 +682,16 @@
     );
   }
   function allowedTaskIds(u) {
+    // RLS đã giới hạn dữ liệu tải về; ở đây chỉ chặn thêm theo vai trò.
+    let mine = new Set(
+      state.classes.filter((c) => (c.teacherIds || []).includes(u.id)).map((c) => c.id),
+    );
     let ids = new Set();
     state.tasks.forEach((t) => {
       if (
         u.role === "admin" ||
         (u.role === "teacher" &&
-          t.teacherId === u.id &&
-          (!u.subject || t.subject === u.subject))
+          (t.teacherId === u.id || t.createdBy === u.id || (t.classId && mine.has(t.classId))))
       )
         ids.add(t.id);
     });
@@ -1281,7 +1284,7 @@
   }
   function taskForm(t = {}, ownerId = current().id) {
     let teachers = state.users.filter((u) => u.role === "teacher");
-    return `<form id="taskForm"><div class="form-grid"><div class="full"><label>Tên nhiệm vụ *</label><input name="title" required value="${esc(t.title || "")}"></div><div><label>Môn học *</label><input name="subject" required value="${esc(t.subject || "")}"></div><div><label>Loại nhiệm vụ</label><input name="kind" value="${esc(t.kind || "Nhiệm vụ")}"></div><div><label>Thời gian dự kiến (phút) *</label><input type="number" name="estimatedMinutes" min="1" required value="${t.estimatedMinutes ?? 60}"></div><div><label>Thời gian cần học thêm (phút) *</label><input type="number" name="remainingWorkMinutes" min="0" required value="${t.remainingWorkMinutes ?? t.estimatedMinutes ?? 60}"></div><div><label>Hạn nộp *</label><input type="datetime-local" name="dueAt" required value="${esc(t.dueAt ? new Date(new Date(t.dueAt).getTime() - new Date(t.dueAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "")}"></div><div><label>Ưu tiên</label><select name="priority"><option value="1" ${t.priority === 1 ? "selected" : ""}>Thường</option><option value="2" ${!t.priority || t.priority === 2 ? "selected" : ""}>Vừa</option><option value="3" ${t.priority === 3 ? "selected" : ""}>Cao</option></select></div><div><label>Người nhận</label>${isStudent() ? `<input type="hidden" name="ownerId" value="${current().id}"><input value="${esc(current().name)}" disabled>` : `<select name="ownerId" ${t.id ? "disabled" : ""}>${state.users
+    return `<form id="taskForm"><div class="form-grid"><div class="full"><label>Tên nhiệm vụ *</label><input name="title" required value="${esc(t.title || "")}"></div><div><label>Môn học *</label><input name="subject" required value="${esc(t.subject || "")}"></div><div><label>Loại nhiệm vụ</label><input name="kind" value="${esc(t.kind || "Nhiệm vụ")}"></div><div><label>Thời gian dự kiến (phút) *</label><input type="number" name="estimatedMinutes" min="1" required value="${t.estimatedMinutes ?? 60}"></div><div><label>Thời gian cần học thêm (phút) *</label><input type="number" name="remainingWorkMinutes" min="0" required value="${t.remainingWorkMinutes ?? t.estimatedMinutes ?? 60}"></div><div><label>Hạn nộp *</label><input type="datetime-local" name="dueAt" required value="${esc(t.dueAt ? new Date(new Date(t.dueAt).getTime() - new Date(t.dueAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "")}"></div><div><label>Ngày bắt đầu (tùy chọn)</label><input type="datetime-local" name="startAt" value="${esc(t.assignedAt ? new Date(new Date(t.assignedAt).getTime() - new Date(t.assignedAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "")}"></div><div><label>Ưu tiên</label><select name="priority"><option value="1" ${t.priority === 1 ? "selected" : ""}>Thường</option><option value="2" ${!t.priority || t.priority === 2 ? "selected" : ""}>Vừa</option><option value="3" ${t.priority === 3 ? "selected" : ""}>Cao</option></select></div><div><label>Người nhận</label>${isStudent() ? `<input type="hidden" name="ownerId" value="${current().id}"><input value="${esc(current().name)}" disabled>` : `<select name="ownerId" ${t.id ? "disabled" : ""}>${state.users
       .filter((u) => u.role === "student")
       .map(
         (u) =>
@@ -1311,6 +1314,11 @@
         toast("Muốn giao bài cho học sinh, hãy dùng nút “Giao nhiệm vụ” ở trang lớp.");
         return;
       }
+      let startD = data.startAt ? new Date(data.startAt) : null;
+      if (startD && startD > due) {
+        toast("Ngày bắt đầu phải trước hạn nộp.");
+        return;
+      }
       let est = Number(data.estimatedMinutes),
         rem = Number(data.remainingWorkMinutes);
       if (est < 1 || rem < 0) {
@@ -1325,6 +1333,7 @@
           estimatedMinutes: est,
           remainingWorkMinutes: rem,
           dueAt: due.toISOString(),
+          assignedAt: startD ? startD.toISOString() : t.assignedAt || iso(now()),
           priority: +data.priority,
           teacherId: data.teacherId || null,
         });
@@ -1344,6 +1353,8 @@
           actualMinutes: 0,
           remainingWorkMinutes: rem,
           dueAt: due.toISOString(),
+          assignedAt: startD ? startD.toISOString() : iso(now()),
+          
           priority: +data.priority,
           status: "todo",
           sessions: [],

@@ -191,7 +191,7 @@ function taskFromRow(p, extra, sessions) {
     remainingWorkMinutes: extra.remaining ?? (p.status === 'completed' ? 0 : a.estimated_minutes), dueAt: a.deadline, priority: PRIO_FROM_DB[a.priority] || 2,
     status: STATUS_FROM_DB[p.status] || 'todo', dbStatus: p.status, sessions: sessions || [], history: Array.isArray(extra.history) ? extra.history : [],
     teacherId: a.teacher_id, classId: a.class_id, createdBy: a.created_by, source: a.source || 'teacher',
-    startedAt: p.started_at, completedAt: p.completed_at, assignedAt: a.created_at || p.created_at || null, synced: true };
+    startedAt: p.started_at, completedAt: p.completed_at, assignedAt: a.start_at || a.created_at || p.created_at || null, startAtSet: a.start_at || null, synced: true };
 }
 
 async function loadWorld(profile) {

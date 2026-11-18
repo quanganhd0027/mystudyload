@@ -130,13 +130,15 @@ SL.assignToClass = async function (classId, className) {
     <div class="full"><label>Mô tả</label><textarea name="description" rows="3"></textarea></div>
     <div><label>Môn học *</label><select name="subject_id" required>${ctx.subjects.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></div>
     <div><label>Hạn hoàn thành *</label><input type="datetime-local" name="due" required></div>
+    <div><label>Ngày bắt đầu (tùy chọn)</label><input type="datetime-local" name="start"></div>
     <div><label>Thời gian dự kiến (phút) *</label><input type="number" name="est" min="1" value="60" required></div>
     <div><label>Ưu tiên</label><select name="priority"><option value="1">Thường</option><option value="2" selected>Vừa</option><option value="3">Cao</option></select></div></div></form>`, 'Giao bài',
     async (root) => {
       const f = root.querySelector('form'); if (!f.reportValidity()) return false;
       const v = Object.fromEntries(new FormData(f).entries());
       if (new Date(v.due) <= new Date()) throw new A.ApiError('validation', 'Hạn hoàn thành phải sau thời điểm hiện tại.');
-      await A.run(A.sb.from('assignments').insert({ title: v.title.trim(), description: (v.description || '').trim() || null, class_id: classId, subject_id: v.subject_id,
+      if (v.start && new Date(v.start) > new Date(v.due)) throw new A.ApiError('validation', 'Ngày bắt đầu phải trước hạn hoàn thành.');
+      await A.run(A.sb.from('assignments').insert({ ...(v.start ? { start_at: toIso(v.start) } : {}), title: v.title.trim(), description: (v.description || '').trim() || null, class_id: classId, subject_id: v.subject_id,
         estimated_minutes: +v.est, deadline: toIso(v.due), priority: A.PRIO_TO_DB[+v.priority], created_by: me.id, source: ctx.source, teacher_id: ctx.source === 'teacher' ? me.id : null }));
       await SL.reload();
     }, 'Đã giao nhiệm vụ cho cả lớp.');
@@ -146,12 +148,14 @@ SL.editAssignment = async function (t) { // sửa bài đã giao: áp dụng cho
     <div class="full"><label>Tiêu đề *</label><input name="title" required maxlength="150" value="${esc(t.title)}"></div>
     <div class="full"><label>Mô tả</label><textarea name="description" rows="3">${esc(t.description || '')}</textarea></div>
     <div><label>Hạn hoàn thành *</label><input type="datetime-local" name="due" required value="${new Date(new Date(t.dueAt).getTime() - new Date(t.dueAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16)}"></div>
+    <div><label>Ngày bắt đầu (tùy chọn)</label><input type="datetime-local" name="start" value="${t.startAtSet ? new Date(new Date(t.startAtSet).getTime() - new Date(t.startAtSet).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}"></div>
     <div><label>Thời gian dự kiến (phút) *</label><input type="number" name="est" min="1" value="${t.estimatedMinutes}" required></div>
     <div><label>Ưu tiên</label><select name="priority"><option value="1" ${t.priority === 1 ? 'selected' : ''}>Thường</option><option value="2" ${t.priority === 2 ? 'selected' : ''}>Vừa</option><option value="3" ${t.priority === 3 ? 'selected' : ''}>Cao</option></select></div></div></form>`, 'Lưu thay đổi',
     async (root) => {
       const f = root.querySelector('form'); if (!f.reportValidity()) return false;
       const v = Object.fromEntries(new FormData(f).entries());
-      const rows = await A.run(A.sb.from('assignments').update({ title: v.title.trim(), description: (v.description || '').trim() || null, deadline: toIso(v.due),
+      if (v.start && new Date(v.start) > new Date(v.due)) throw new A.ApiError('validation', 'Ngày bắt đầu phải trước hạn hoàn thành.');
+      const rows = await A.run(A.sb.from('assignments').update({ start_at: v.start ? toIso(v.start) : null, title: v.title.trim(), description: (v.description || '').trim() || null, deadline: toIso(v.due),
         estimated_minutes: +v.est, priority: A.PRIO_TO_DB[+v.priority] }).eq('id', t.assignmentId).select('id'));
       if (!rows || !rows.length) throw new A.ApiError('unauthorized', 'Bạn không có quyền sửa bài này.');
       await SL.reload();
