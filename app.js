@@ -858,57 +858,139 @@
     $("#taskFilter").onchange = draw;
     draw();
   }
+  let calTab = "todo";
+  const SUBJ_FIXED = { toan: "#ef4444", van: "#eab308", "ngu van": "#eab308", anh: "#84cc16", "tieng anh": "#84cc16", dia: "#0ea5e9", "dia li": "#0ea5e9", "dia ly": "#0ea5e9", su: "#f472b6", "lich su": "#f472b6", ly: "#6366f1", "vat li": "#6366f1", "vat ly": "#6366f1", hoa: "#14b8a6", "hoa hoc": "#14b8a6", sinh: "#22c55e", "sinh hoc": "#22c55e", tin: "#8b5cf6", "tin hoc": "#8b5cf6", gdcd: "#f97316" };
+  const SUBJ_EXTRA = ["#3b4fd1", "#f97316", "#06b6d4", "#a855f7", "#64748b", "#d946ef", "#0d9488", "#b45309"];
+  function subjColor(name) {
+    let k = String(name || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").trim();
+    if (SUBJ_FIXED[k]) return SUBJ_FIXED[k];
+    let h = 0;
+    for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0;
+    return SUBJ_EXTRA[h % SUBJ_EXTRA.length];
+  }
+  function inkOn(hex) {
+    let n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    return 0.299 * r + 0.587 * g + 0.114 * b > 150 ? "#1b2238" : "#fff";
+  }
+  function calWeeks() {
+    let t0 = dayStart(now()),
+      mon = new Date(t0.getTime() - ((t0.getDay() + 6) % 7) * DAY);
+    return [0, 1].map((w) => {
+      let s = new Date(mon.getTime() + w * 7 * DAY);
+      return { start: s, days: Array.from({ length: 7 }, (_, i) => new Date(s.getTime() + i * DAY)) };
+    });
+  }
+  function fmtMin(m) {
+    m = Math.round(m);
+    return m >= 60 ? Math.floor(m / 60) + "h" + (m % 60 ? String(m % 60).padStart(2, "0") : "") : m + "p";
+  }
+  function calLegend(subjects) {
+    return `<div class="cal-legend">${subjects.map((s) => `<div><i style="background:${subjColor(s)}"></i>${esc(s)}</div>`).join("") || '<div class="muted">Chưa có môn nào</div>'}</div>`;
+  }
+  function calUserTasks(u) {
+    if (!isTeacher()) return state.tasks.filter((t) => t.ownerId === u.id);
+    let seen = new Set();
+    return state.tasks.filter((t) => {
+      let k = t.assignmentId || t.id;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }
+  function calTodoHtml(u, weeks) {
+    let tasks = calUserTasks(u),
+      byDay = {};
+    // học sinh: phút của các buổi app đã xếp (và đã học); giáo viên: bài đã giao tính vào ngày hạn nộp
+    tasks.forEach((t) => {
+      if (isTeacher()) {
+        if (t.status === "done" && !t.assignmentId) return;
+        let k = localDay(t.dueAt);
+        (byDay[k] ||= []).push({ t, m: Number(t.estimatedMinutes) || 0, done: false });
+      } else
+        (t.sessions || []).forEach((s) => {
+          let m = Number(s.minutes) || 0;
+          if (m > 0) (byDay[localDay(s.startAt)] ||= []).push({ t, m, done: !!s.completed });
+        });
+    });
+    let all = weeks.flatMap((w) => w.days),
+      totals = all.map((d) => (byDay[localDay(d)] || []).reduce((a, x) => a + x.m, 0)),
+      max = Math.max(60, ...totals),
+      subs = [...new Set(all.flatMap((d) => (byDay[localDay(d)] || []).map((x) => x.t.subject || "Chưa rõ môn")))].sort(),
+      today = localDay(now()),
+      names = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+    let rows = weeks
+      .map(
+        (w, wi) =>
+          `<div class="wk-label">${wi === 0 ? "Tuần này" : "Tuần sau"} · ${w.days[0].getDate()}/${w.days[0].getMonth() + 1} – ${w.days[6].getDate()}/${w.days[6].getMonth() + 1}</div><div class="wk-row">${w.days
+            .map((d, i) => {
+              let k = localDay(d),
+                items = (byDay[k] || []).slice().sort((a, b) => String(a.t.subject).localeCompare(String(b.t.subject), "vi")),
+                tot = items.reduce((a, x) => a + x.m, 0),
+                past = k < today;
+              return `<div class="wk-cell ${k === today ? "today" : ""} ${past ? "past" : ""}"><div class="wk-head"><b>${names[i]}</b><span>${d.getDate()}/${d.getMonth() + 1}</span></div><div class="wk-plot"><div class="wk-stack">${items
+                .map(
+                  (x) =>
+                    `<i class="wk-seg ${x.done ? "done" : ""}" style="height:${(x.m / max) * 100}%;background:${subjColor(x.t.subject)}" data-action="detail" data-id="${x.t.id}" title="${esc(x.t.subject || "")} — ${esc(x.t.title)}: ${fmtMin(x.m)}${x.done ? " (đã học)" : ""}"></i>`,
+                )
+                .join("")}</div></div><div class="wk-total">${tot ? fmtMin(tot) : "—"}</div></div>`;
+            })
+            .join("")}</div>`,
+      )
+      .join("");
+    return `<div class="cal-layout"><div class="cal-main">${rows}</div>${calLegend(subs)}</div><div class="footer-note">${isTeacher() ? "Cột thể hiện tổng thời gian dự kiến của các bài đã giao, tính vào ngày hạn nộp." : "Cột thể hiện thời gian học app đã xếp cho từng ngày; cùng một thang chiều cao cho cả hai tuần. Chạm vào một đoạn màu để xem bài."}</div>`;
+  }
+  function calLoadHtml(u, weeks) {
+    let tasks = calUserTasks(u),
+      today = localDay(now()),
+      names = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"],
+      items = tasks.map((t) => {
+        let end = new Date(t.dueAt).getTime(),
+          st = t.assignedAt ? new Date(t.assignedAt).getTime() : NaN;
+        if (isNaN(st) || st > end) st = Math.min(dayStart(now()).getTime(), dayStart(end).getTime());
+        return { t, st, end };
+      }),
+      subs = new Set();
+    let rows = weeks
+      .map((w, wi) => {
+        let rs = w.start.getTime(),
+          re = rs + 7 * DAY,
+          inRow = items.filter((x) => x.end > rs && x.st < re).sort((a, b) => a.st - b.st || a.end - b.end),
+          lanes = [],
+          bars = inRow
+            .map((x) => {
+              subs.add(x.t.subject || "Chưa rõ môn");
+              let a = Math.max(x.st, rs), b = Math.min(x.end, re);
+              let left = ((a - rs) / (7 * DAY)) * 100, width = Math.max(((b - a) / (7 * DAY)) * 100, 3);
+              let lane = lanes.findIndex((e) => e <= a);
+              if (lane < 0) lane = lanes.length;
+              lanes[lane] = a + (width / 100) * 7 * DAY;
+              let col = subjColor(x.t.subject),
+                done = x.t.status === "done",
+                over = !done && x.end < now().getTime();
+              return `<div class="ld-bar ${done ? "done" : ""} ${over ? "over" : ""} ${x.st < rs ? "cont-l" : ""} ${x.end > re ? "cont-r" : ""}" style="left:${left}%;width:${Math.min(width, 100 - left)}%;top:${lane * 26}px;background:${col};color:${inkOn(col)}" data-action="detail" data-id="${x.t.id}" title="${esc(x.t.subject || "")} — ${esc(x.t.title)} · hạn ${fmtDate(x.t.dueAt)}">${done ? "✓ " : ""}${esc(x.t.subject || "")}: ${esc(x.t.title)}</div>`;
+            })
+            .join("");
+        return `<div class="wk-label">${wi === 0 ? "Tuần này" : "Tuần sau"} · ${w.days[0].getDate()}/${w.days[0].getMonth() + 1} – ${w.days[6].getDate()}/${w.days[6].getMonth() + 1}</div><div class="ld-row"><div class="ld-cols">${w.days.map((d, i) => `<div class="ld-col ${localDay(d) === today ? "today" : ""} ${localDay(d) < today ? "past" : ""}"><b>${names[i]}</b><span>${d.getDate()}/${d.getMonth() + 1}</span></div>`).join("")}</div><div class="ld-bars" style="min-height:${Math.max(lanes.length, 2) * 26 + 8}px">${bars}</div></div>`;
+      })
+      .join("");
+    return `<div class="cal-layout"><div class="cal-main">${rows}</div>${calLegend([...subs].sort())}</div><div class="footer-note">Mỗi thanh là một bài tập, kéo từ lúc được giao đến hạn nộp. Thanh viền đỏ là bài quá hạn; bài đã xong thì mờ và có dấu ✓. Bài kéo qua cuối tuần sẽ nối sang hàng dưới.</div>`;
+  }
   function renderCalendar() {
-    let u = current();
+    let u = current(),
+      weeks = calWeeks();
     pageHead(
       isTeacher() ? "Lịch nhiệm vụ" : "Lịch học cá nhân",
-      isTeacher()
-        ? "Xem hạn nộp các nhiệm vụ đã giao."
-        : "Xem lịch học, hạn nộp và thời gian bận của bạn.",
+      isTeacher() ? "Xem khối lượng và hạn nộp các bài đã giao: tuần này và tuần sau." : "Xem lịch học app đã xếp và bài tập được giao: tuần này và tuần sau.",
     );
-    let base = new Date(state.viewDate || localDay(now()));
-    let start = new Date(base);
-    if (calendarMode === "week") {
-      start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
-    } else start.setDate(1);
-    let count =
-      calendarMode === "week"
-        ? 7
-        : new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
-    let days = Array.from(
-      { length: count },
-      (_, i) => new Date(start.getTime() + i * DAY),
-    );
-    $("#content").innerHTML =
-      `<div class="card"><div class="section-head"><div class="row"><button class="secondary" data-action="cal-prev">←</button><h2>${start.toLocaleDateString("vi-VN", { month: "long", year: "numeric" })}${calendarMode === "week" ? " · tuần" : ""}</h2><button class="secondary" data-action="cal-next">→</button></div><div class="row"><button class="${calendarMode === "week" ? "" : "secondary"}" data-action="cal-week">Tuần</button><button class="${calendarMode === "month" ? "" : "secondary"}" data-action="cal-month">Tháng</button><button class="secondary" data-action="busy">+ Thời gian bận</button></div></div><div class="weekdays">${["T2", "T3", "T4", "T5", "T6", "T7", "CN"].map((x) => `<div>${x}</div>`).join("")}</div><div class="calendar">${days
-        .map((d) => {
-          let k = localDay(d),
-            ts = state.tasks.filter(
-              (t) =>
-                t.ownerId === u.id &&
-                t.status !== "done" &&
-                localDay(t.dueAt) === k,
-            ),
-            ss = state.tasks
-              .filter((t) => t.ownerId === u.id)
-              .flatMap((t) =>
-                (t.sessions || [])
-                  .filter((s) => localDay(s.startAt) === k)
-                  .map((s) => ({ t, s })),
-              );
-          return `<div class="day ${k === localDay(now()) ? "today" : ""}"><h3>${d.toLocaleDateString("vi-VN", { day: "numeric", month: calendarMode === "week" ? "short" : undefined })}</h3>${ss.map(({ t, s }) => `<div class="cal-event ${s.completed ? "done" : ""}" data-action="detail" data-id="${t.id}" title="${esc(t.title)}">${s.completed ? "✓ " : ""}${new Date(s.startAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} ${esc(t.title)}</div>`).join("")}${ts.map((t) => `<div class="cal-event" data-action="detail" data-id="${t.id}" title="Hạn nộp">${esc(t.title)} · Hạn</div>`).join("")}</div>`;
-        })
-        .join(
-          "",
-        )}</div><div class="footer-note">Giờ hiển thị theo múi giờ thiết bị. Kế hoạch trong tương lai được tính lại khi lịch bận hoặc tiến độ thay đổi.</div></div><div class="card" style="margin-top:16px"><h2>Thời gian bận lặp lại</h2>${
-        state.busy
-          .filter((b) => b.ownerId === u.id)
-          .map(
-            (b) =>
-              `<div class="item"><div><div class="item-title">${esc(b.label)}</div><div class="item-meta">${b.start}–${b.end} · ${b.days.map((d) => ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][d]).join(", ")}</div></div><button class="small danger" data-action="delete-busy" data-id="${b.id}">Xóa</button></div>`,
-          )
-          .join("") || '<div class="empty">Chưa khai báo thời gian bận.</div>'
-      }</div>`;
+    let busyCard = isTeacher()
+      ? ""
+      : `<div class="card" style="margin-top:16px"><div class="section-head"><h2>Thời gian bận lặp lại</h2><button class="secondary" data-action="busy">+ Thời gian bận</button></div>${
+          state.busy
+            .filter((b) => b.ownerId === u.id)
+            .map((b) => `<div class="item"><div><div class="item-title">${esc(b.label)}</div><div class="item-meta">${b.start}–${b.end} · ${b.days.map((d) => ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][d]).join(", ")}</div></div><button class="small danger" data-action="delete-busy" data-id="${b.id}">Xóa</button></div>`)
+            .join("") || '<div class="empty">Chưa khai báo thời gian bận.</div>'
+        }</div>`;
+    $("#content").innerHTML = `<div class="card"><div class="pill-tabs"><button class="${calTab === "todo" ? "active" : ""}" data-action="cal-tab" data-tab="todo">Lịch việc cần làm</button><button class="${calTab === "load" ? "active" : ""}" data-action="cal-tab" data-tab="load">Lịch khối lượng công việc</button></div>${calTab === "todo" ? calTodoHtml(u, weeks) : calLoadHtml(u, weeks)}</div>${calTab === "todo" ? busyCard : ""}`;
   }
   function renderClasses() {
     let u = current();
@@ -2078,6 +2160,10 @@
           schedule(u.id);
           render();
         }
+        break;
+      case "cal-tab":
+        calTab = el.dataset.tab === "load" ? "load" : "todo";
+        render();
         break;
       case "cal-prev":
         shiftCalendar(-1);
