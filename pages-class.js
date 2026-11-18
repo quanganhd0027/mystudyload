@@ -36,7 +36,7 @@ async function loadCtx(cls) {
   const perms = { adm, home, tch, roles, direct, isOfficer, stats: adm || home || tch || isOfficer, manageMembers: adm || home, manageTeams: adm || home || has('class_president'), assignOfficers: adm || home,
     createOT: adm || home || roles.length > 0, manageDuty: adm || home || has('labor_vp'), postAnn: adm || home || isOfficer,
     viewReports: adm || home || isOfficer, editReports: adm || home || isOfficer,
-    assign: adm || isOfficer || tch, delegate: adm || home || direct.length > 0, lead };
+    assign: adm || isOfficer || tch, notify: adm || home || tch || isOfficer, delegate: adm || home || direct.length > 0, lead };
   return { cls, members, teams, tmembers, officers, delegs: delegs || [], names, codes, perms, me };
 }
 const nm = (c, id) => esc(c.names[id] || '(không rõ)');
@@ -72,7 +72,7 @@ function drawTab() {
   const cls = SL.state().classes.find((c) => c.id === K.classId);
   ui.load(body, () => loadCtx(cls), (ctx) => {
     const P = ctx.perms;
-    const tabs = [['overview', 'Tổng quan'], ['members', 'Thành viên'], ['teams', 'Tổ'], ['officers', 'Cán bộ lớp'], ['otasks', 'Nhiệm vụ cán bộ'], ['duty', 'Trực nhật'], ['ann', 'Thông báo lớp'], ...(P.stats ? [['stats', 'Thống kê bài tập']] : []), ...(P.viewReports ? [['reports', 'Báo cáo tuần']] : []), ['deleg', 'Ủy quyền']];
+    const tabs = [['overview', 'Tổng quan'], ['members', 'Thành viên'], ['teams', 'Tổ'], ['officers', 'Cán bộ lớp'], ['otasks', 'Nhiệm vụ cán bộ'], ['duty', 'Trực nhật'], ['ann', 'Thông báo lớp'], ...(P.notify ? [['notify', 'Gửi thông báo']] : []), ...(P.stats ? [['stats', 'Thống kê bài tập']] : []), ...(P.viewReports ? [['reports', 'Báo cáo tuần']] : []), ['deleg', 'Ủy quyền']];
     if (!tabs.find((t) => t[0] === K.tab)) K.tab = 'overview';
     body.innerHTML = `<div class="subtabs">${tabs.map(([k, l]) => `<button data-k="${k}" class="${K.tab === k ? 'active' : ''}">${l}</button>`).join('')}</div><div id="ktab"></div>`;
     body.querySelectorAll('[data-k]').forEach((b) => (b.onclick = () => { K.tab = b.dataset.k; drawTab(); }));
@@ -222,6 +222,40 @@ TABS.duty = (el, c, refresh) => {
 };
 
 /* ---------- Thông báo lớp ---------- */
+/* ---------- Gửi thông báo tới học sinh của lớp (giáo viên, cán bộ lớp, admin) ---------- */
+const NCOLORS = { default: ['Mặc định', '#5548e8'], blue: ['Xanh dương', '#2563eb'], green: ['Xanh lá', '#16845b'], red: ['Đỏ', '#c62828'], amber: ['Vàng', '#a86600'], purple: ['Tím', '#8b3fd9'], pink: ['Hồng', '#d6336c'], teal: ['Xanh ngọc', '#0f8b8d'] };
+TABS.notify = (el, c) => {
+  const sel = new Set(); let all = true, q = '';
+  const stu = c.members.map((m) => ({ id: m.student_id, name: c.names[m.student_id] || '(không rõ)', code: c.codes[m.student_id] || '' })).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+  el.innerHTML = `<div class="card"><h2>Gửi thông báo cho lớp ${esc(c.cls.name)}</h2><p class="muted">Thông báo hiện ở góc dưới bên phải màn hình của học sinh trong 1 phút (và trong mục Thông báo). Chỉ gửi được cho học sinh trong lớp này.</p>
+  <form id="nf"><label>Tiêu đề *</label><input name="t" required maxlength="100"><label>Nội dung</label><textarea name="b" rows="3" maxlength="300"></textarea>
+  <label>Màu thông báo</label><div class="accent-grid">${Object.entries(NCOLORS).map(([k, v]) => `<label class="accent-opt"><input type="radio" name="c" value="${k}" ${k === 'default' ? 'checked' : ''}><span class="accent-dot big" style="background:${v[1]}"></span> ${v[0]}</label>`).join('')}</div>
+  <div class="item" id="nPrev" style="margin-top:8px"><div><div class="item-title" id="nPT"></div><div id="nPB"></div><div class="item-meta">Xem trước</div></div></div>
+  <label>Người nhận</label><label class="checkrow"><input type="checkbox" id="nAll" checked> Gửi cho <b>cả lớp</b> (${stu.length} học sinh)</label>
+  <div id="nPick" class="hidden"><input type="search" id="nQ" placeholder="Tìm học sinh theo tên hoặc mã…" style="margin-top:8px"><label class="checkrow"><input type="checkbox" id="nSel"> Chọn tất cả kết quả đang hiện</label><div id="nList" style="max-height:260px;overflow:auto;border:1px solid var(--line,#ddd);border-radius:8px;padding:4px 8px"></div></div>
+  <div class="muted" id="nCount" style="margin:8px 0"></div><button type="submit">Gửi thông báo</button></form></div>`;
+  const $c = (x) => el.querySelector(x), f = $c('#nf');
+  const prev = () => { $c('#nPT').textContent = f.elements.t.value || '(chưa có tiêu đề)'; $c('#nPB').textContent = f.elements.b.value; $c('#nPrev').style.borderLeft = '4px solid ' + (NCOLORS[(f.querySelector('[name=c]:checked')?.value || 'default')] || NCOLORS.default)[1]; };
+  const shown = () => stu.filter((u) => !q || (u.name + ' ' + u.code).toLowerCase().includes(q.toLowerCase()));
+  const count = () => { $c('#nCount').textContent = all ? `Sẽ gửi cho cả lớp (${stu.length} học sinh).` : `Đã chọn ${sel.size} học sinh.`; };
+  const list = () => { const rows = shown();
+    $c('#nList').innerHTML = rows.length ? rows.map((u) => `<label class="checkrow" style="display:flex;gap:8px;padding:6px 0"><input type="checkbox" data-u="${u.id}" ${sel.has(u.id) ? 'checked' : ''}><span><b>${esc(u.name)}</b>${u.code ? ' <span class="muted">· ' + esc(u.code) + '</span>' : ''}</span></label>`).join('') : '<div class="muted" style="padding:8px">Không có học sinh phù hợp.</div>';
+    $c('#nSel').checked = rows.length > 0 && rows.every((u) => sel.has(u.id));
+    $c('#nList').querySelectorAll('[data-u]').forEach((b) => (b.onchange = () => { b.checked ? sel.add(b.dataset.u) : sel.delete(b.dataset.u); $c('#nSel').checked = shown().every((u) => sel.has(u.id)); count(); })); count(); };
+  f.addEventListener('input', prev); prev(); count();
+  $c('#nAll').onchange = (e) => { all = e.target.checked; $c('#nPick').classList.toggle('hidden', all); if (!all) list(); count(); };
+  $c('#nQ').oninput = (e) => { q = e.target.value; list(); };
+  $c('#nSel').onchange = (e) => { shown().forEach((u) => (e.target.checked ? sel.add(u.id) : sel.delete(u.id))); list(); };
+  f.onsubmit = async (e) => {
+    e.preventDefault(); if (!f.reportValidity()) return;
+    if (!all && !sel.size) return SL.toast('Hãy chọn ít nhất một học sinh, hoặc tick "Gửi cho cả lớp".');
+    if (all && stu.length > 1 && !confirm(`Gửi thông báo này cho cả lớp ${c.cls.name} (${stu.length} học sinh)?`)) return;
+    const btn = f.querySelector('[type=submit]'); btn.disabled = true;
+    try { const n = await A.rpc('class_send_notification', { p_class_id: c.cls.id, p_users: all ? null : [...sel], p_all: all, p_title: f.elements.t.value.trim(), p_body: f.elements.b.value.trim(), p_color: (f.querySelector('[name=c]:checked')?.value || 'default') }); SL.toast(`Đã gửi thông báo cho ${n} học sinh.`); f.elements.t.value = ''; f.elements.b.value = ''; prev(); }
+    catch (err) { SL.toast(A.toApiError(err).message); }
+    btn.disabled = false;
+  };
+};
 TABS.ann = (el, c, refresh) => {
   const P = c.perms;
   el.innerHTML = `${P.postAnn ? '<div class="toolbar"><button id="anew">+ Đăng thông báo</button></div>' : ''}<div id="aList"></div>`;

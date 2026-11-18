@@ -89,7 +89,7 @@ function drawNoticeCard(card) {
   <div id="nPick"><input type="search" id="nQ" placeholder="Tìm theo tên, mã học sinh, tên tài khoản…" style="margin-top:8px"><label class="checkrow"><input type="checkbox" id="nSel"> Chọn tất cả kết quả đang hiện</label><div id="nList" style="max-height:260px;overflow:auto;border:1px solid var(--line,#ddd);border-radius:8px;padding:4px 8px"></div></div>
   <div class="muted" id="nCount" style="margin:8px 0"></div><button type="submit">Gửi thông báo</button></form>`;
   const $c = (x) => card.querySelector(x), f = $c('#nf');
-  const color = () => (ACCENTS[f.c.value] || ACCENTS.default)[1];
+  const color = () => (ACCENTS[(f.querySelector('[name=c]:checked')?.value || 'default')] || ACCENTS.default)[1];
   const prev = () => { $c('#nPT').textContent = f.t.value || '(chưa có tiêu đề)'; $c('#nPB').textContent = f.b.value; $c('#nPrev').style.borderLeft = '4px solid ' + color(); };
   const match = (u) => { const t = norm([u.display_name, u.username, u.student_code, u.class_name].join(' ')); return !q || t.includes(norm(q)); };
   const shown = () => users.filter((u) => !u.is_banned && match(u));
@@ -109,7 +109,7 @@ function drawNoticeCard(card) {
     if (all && !confirm('Gửi thông báo này cho TẤT CẢ tài khoản?')) return;
     const btn = f.querySelector('[type=submit]'); btn.disabled = true;
     try {
-      const n = await A.rpc('admin_send_notification', { p_users: all ? null : [...sel], p_all: all, p_title: f.t.value.trim(), p_body: f.b.value.trim(), p_color: f.c.value });
+      const n = await A.rpc('admin_send_notification', { p_users: all ? null : [...sel], p_all: all, p_title: f.t.value.trim(), p_body: f.b.value.trim(), p_color: (f.querySelector('[name=c]:checked')?.value || 'default') });
       SL.toast(`Đã gửi thông báo cho ${n} tài khoản.`);
     } catch (err) { SL.toast(A.toApiError(err).message); }
     btn.disabled = false;
