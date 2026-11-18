@@ -13,7 +13,7 @@ SL.pages.profile = {
   render(el) {
     const p = SL.profile();
     el.innerHTML = `<div class="grid"><div class="card span-6"><h2>Thông tin tài khoản</h2>
-      <dl class="kv"><dt>Email</dt><dd>${esc(p.email)}</dd><dt>Tên tài khoản</dt><dd>${esc(p.username)}</dd><dt>Vai trò</dt><dd><span class="badge">${SL.roleLabel(p.role)}</span></dd><dt>Ngày tạo</dt><dd>${SL.fmtDate(p.created_at)}</dd></dl>
+      <dl class="kv"><dt>Email</dt><dd>${esc(p.email)}</dd><dt>Tên tài khoản</dt><dd>${esc(p.username)}</dd><dt>Vai trò</dt><dd><span class="badge">${SL.myRoleText(p)}</span></dd><dt>Ngày tạo</dt><dd>${SL.fmtDate(p.created_at)}</dd></dl>
       <form id="profileForm" style="margin-top:14px"><label>Họ tên / tên hiển thị *</label><input name="display_name" required maxlength="60" value="${esc(p.display_name)}">
       <label>Mã học sinh (đúng 5 chữ số)</label><input name="student_code" id="pfCode" maxlength="5" value="${esc(p.student_code || '')}">
       <label>Số điện thoại</label><input name="phone" id="pfPhone" maxlength="12" value="${esc(p.phone || '')}">
@@ -45,7 +45,7 @@ SL.pages.profile = {
         if (newCode !== (p.student_code || '') || newPhone !== (p.phone || '')) await A.auth.updateMyIdentity(newCode, newPhone);
         const np = await A.auth.updateMyProfile({ display_name: v.display_name.trim(), class_name: v.class_name.trim() });
         SL.refreshProfile(np); const me = SL.current(); me.name = np.display_name || np.username;
-        document.querySelector('.side-note').textContent = 'Tài khoản: ' + me.name + ' · ' + SL.roleLabel(np.role);
+        document.querySelector('.side-note').textContent = 'Tài khoản: ' + me.name + ' · ' + SL.myRoleText(np);
         SL.toast('Đã cập nhật hồ sơ.');
       } catch (err) { const m = A.toApiError(err).message; msg.textContent = m; msg.classList.remove('hidden'); if (/Mã học sinh này đã có tài khoản/.test(m)) $('#dupBox').classList.remove('hidden'); }
       btn.textContent = 'Lưu hồ sơ'; refreshIdent();

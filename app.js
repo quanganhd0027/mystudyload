@@ -87,6 +87,8 @@
   /* ===================== Xác thực & phiên (Supabase Auth) ===================== */
   const A = window.SLApi;
   const roleLabel = (r) => (r === "admin" ? "Quản trị viên" : r === "teacher" ? "Giáo viên" : "Học sinh");
+  let myOfficer = []; // các lớp mà tài khoản học sinh này đang là cán bộ lớp
+  const myRoleText = (p) => (p && p.role === "student" && myOfficer.length ? "Cán bộ lớp · " + myOfficer.join(", ") : roleLabel(p && p.role));
   const world = { subjects: [], profile: null };
   let toastTimer = null;
   function showToast(s) {
@@ -343,8 +345,8 @@
     $("#nav").innerHTML = items.map(([p, l]) => `<button data-page="${p}">${l}</button>`).join("");
     if (!isAdmin() && current().role === "student") { // cán bộ lớp (học sinh) cũng có trang Dữ liệu
       const meId = current().id;
-      A.sb.from("class_officer_roles").select("id").eq("user_id", meId).is("ended_at", null).in("role", ["class_president", "academic_vp"]).limit(1)
-        .then((r) => { if (r.data && r.data.length && !$("#nav [data-page=datahub]")) { const st = $("#nav [data-page=settings]"); const b = document.createElement("button"); b.dataset.page = "datahub"; b.textContent = dataItem[1]; st.before(b); b.classList.toggle("active", page === "datahub"); } }, () => {});
+      A.sb.from("class_officer_roles").select("id,classes(name)").eq("user_id", meId).is("ended_at", null).in("role", ["class_president", "academic_vp"])
+        .then((r) => { if (r.data && r.data.length) { myOfficer = [...new Set(r.data.map((x) => x.classes && x.classes.name).filter(Boolean))]; const sn = document.querySelector(".side-note"); if (sn) sn.textContent = "Tài khoản: " + current().name + " · " + myRoleText(world.profile || current()); } if (r.data && r.data.length && !$("#nav [data-page=datahub]")) { const st = $("#nav [data-page=settings]"); const b = document.createElement("button"); b.dataset.page = "datahub"; b.textContent = dataItem[1]; st.before(b); b.classList.toggle("active", page === "datahub"); } }, () => {});
     }
   }
   /* Giao diện ngoại tuyến + tiện ích trạng thái (Loading / Empty / Error / Unauthorized / Saving) */
@@ -2506,7 +2508,7 @@
       }
     }
   }
-  window.SL = { $, $$, esc, toast: showToast, modal, closeModal, fmtDate, localDay, ui, roleLabel,
+  window.SL = { $, $$, esc, toast: showToast, modal, closeModal, fmtDate, localDay, ui, roleLabel, myRoleText,
     pages: {}, current, isAdmin, isTeacher, isStudent, state: () => state, subjects: () => world.subjects, profile: () => world.profile,
     render, reload: reloadWorld, go: (p) => { page = p; render(); }, refreshProfile: (pr) => { world.profile = pr; } };
   netBanner();
