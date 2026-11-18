@@ -927,7 +927,7 @@
                 items = (byDay[k] || []).slice().sort((a, b) => String(a.t.subject).localeCompare(String(b.t.subject), "vi")),
                 tot = items.reduce((a, x) => a + x.m, 0),
                 past = k < today;
-              return `<div class="wk-cell ${k === today ? "today" : ""} ${past ? "past" : ""}"><div class="wk-head"><b>${names[i]}</b><span>${d.getDate()}/${d.getMonth() + 1}</span></div><div class="wk-plot"><div class="wk-stack">${items
+              return `<div class="wk-cell ${k === today ? "today" : ""} ${past ? "past" : ""}"><div class="wk-head"><b>${names[i]}</b><span>${d.getDate()}/${d.getMonth() + 1}</span></div><div class="wk-plot"><div class="wk-stack">${items.length ? "" : '<i class="wk-seg ghost" title="Không có việc"></i>'}${items
                 .map(
                   (x) =>
                     `<i class="wk-seg ${x.done ? "done" : ""}" style="height:${(x.m / max) * 100}%;background:${subjColor(x.t.subject)}" data-action="detail" data-id="${x.t.id}" title="${esc(x.t.subject || "")} — ${esc(x.t.title)}: ${fmtMin(x.m)}${x.done ? " (đã học)" : ""}"></i>`,
