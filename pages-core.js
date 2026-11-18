@@ -13,6 +13,7 @@ SL.pages.profile = {
   render(el) {
     const p = SL.profile();
     el.innerHTML = `<div class="grid"><div class="card span-6"><h2>Thông tin tài khoản</h2>
+      <div class="row" style="margin-bottom:12px;gap:14px">${SL.av(p.id, p.display_name, p.role, 72)}<button type="button" class="secondary" id="avBtn">Đổi ảnh đại diện</button></div>
       <dl class="kv"><dt>Email</dt><dd>${esc(p.email)}</dd><dt>Tên tài khoản</dt><dd>${esc(p.username)}</dd><dt>Vai trò</dt><dd><span class="badge">${SL.myRoleText(p)}</span></dd><dt>Ngày tạo</dt><dd>${SL.fmtDate(p.created_at)}</dd></dl>
       <form id="profileForm" style="margin-top:14px"><label>Họ tên / tên hiển thị *</label><input name="display_name" required maxlength="60" value="${esc(p.display_name)}">
       <label>Mã học sinh (đúng 5 chữ số)</label><input name="student_code" id="pfCode" maxlength="5" value="${esc(p.student_code || '')}">
@@ -33,6 +34,7 @@ SL.pages.profile = {
       $('#pfNote').innerHTML = legacyBoth && c && ph ? '<b>Tài khoản cũ đang có cả hai.</b> Hãy xóa một trong hai rồi lưu.' : !c && !ph && !isAdm ? '<b>Cần có mã học sinh hoặc số điện thoại.</b> Hãy nhập một trong hai.' : 'Chỉ dùng <b>một</b> trong hai: mã học sinh hoặc số điện thoại.';
     };
     A.auth.bindIdentInput(codeIn, 'code', refreshIdent); A.auth.bindIdentInput(phoneIn, 'phone', refreshIdent);
+    $('#avBtn').onclick = () => SL.avatarEditor(p.id, p.display_name, p.role);
     $('#dupBtn').onclick = () => reportDup(codeIn.value.trim());
     $('#profileForm').onsubmit = async (e) => {
       e.preventDefault();
