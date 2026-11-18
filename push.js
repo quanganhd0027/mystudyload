@@ -59,5 +59,50 @@ SL.afterNotifications = (root) => {
   while (host.firstChild) root.appendChild(host.firstChild);
   draw(root); drawInbox(root);
 };
-window.SLPush = { supported, enable, disable, sync };
+/* ---------- Thông báo nổi ở góc dưới bên phải: hiện 1 phút, bấm X để tắt ---------- */
+const POPUP_MS = 60000, POLL_MS = 20000, SEEN_KEY = 'sl_seen_notes';
+let popStack = null, pollTimer = null, polling = false;
+const seenSet = () => { try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')); } catch (_) { return new Set(); } };
+const saveSeen = (set) => { try { localStorage.setItem(SEEN_KEY, JSON.stringify([...set].slice(-300))); } catch (_) { /* bỏ qua */ } };
+function ensureStack() {
+  if (popStack && document.body.contains(popStack)) return popStack;
+  const st = document.createElement('style');
+  st.textContent = '#notePop{position:fixed;right:18px;bottom:84px;z-index:9999;display:flex;flex-direction:column-reverse;gap:10px;width:min(360px,calc(100vw - 36px))}'
+    + '.note-pop{position:relative;background:#fff;color:#1d2438;border-radius:12px;box-shadow:0 12px 36px #1019381f,0 2px 8px #1019381a;border:1px solid #e3e7f1;border-left:5px solid var(--c);padding:12px 38px 14px 14px;overflow:hidden;cursor:pointer;animation:notein .25s ease}'
+    + '.note-pop b{display:block;font-size:14px;margin-bottom:3px}.note-pop span{display:block;font-size:13px;line-height:1.45;color:#4a5670;white-space:pre-wrap;overflow-wrap:anywhere}'
+    + '.note-pop button.nx{position:absolute;top:6px;right:6px;width:26px;height:26px;padding:0;border-radius:50%;background:#edf0f7;color:#3e4961;font-size:16px;line-height:1;font-weight:700}'
+    + '.note-pop i{position:absolute;left:0;bottom:0;height:3px;background:var(--c);width:100%;transform-origin:left;animation:notebar ' + POPUP_MS + 'ms linear forwards}'
+    + '@keyframes notein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@keyframes notebar{to{transform:scaleX(0)}}';
+  document.head.appendChild(st);
+  popStack = document.createElement('div'); popStack.id = 'notePop'; popStack.setAttribute('aria-live', 'polite'); document.body.appendChild(popStack);
+  return popStack;
+}
+function showPopup(n) {
+  const el = document.createElement('div'); el.className = 'note-pop'; el.style.setProperty('--c', COLORS[n.color] || COLORS.default); el.setAttribute('role', 'status');
+  el.innerHTML = `<b>${SL.esc(n.title)}</b>${n.body ? `<span>${SL.esc(n.body)}</span>` : ''}<button class="nx" type="button" aria-label="Tắt thông báo">×</button><i></i>`;
+  const close = () => { clearTimeout(t); el.remove(); };
+  const t = setTimeout(close, POPUP_MS);
+  el.querySelector('.nx').onclick = (e) => { e.stopPropagation(); close(); };
+  el.onclick = () => { close(); SL.go?.('notifications'); };
+  ensureStack().appendChild(el);
+}
+async function poll() {
+  if (polling || !SL.profile?.()) return; polling = true;
+  try {
+    const rows = await A.rpc('my_notifications', { p_limit: 20 }), seen = seenSet();
+    const fresh = (rows || []).filter((n) => !n.read_at && !seen.has(n.id) && Date.now() - new Date(n.created_at).getTime() < 86400000).reverse().slice(-5);
+    fresh.forEach((n) => { seen.add(n.id); showPopup(n); });
+    (rows || []).forEach((n) => seen.add(n.id)); saveSeen(seen);
+  } catch (_) { /* chưa đăng nhập hoặc mất mạng: bỏ qua */ }
+  polling = false;
+}
+function startPopups() {
+  if (pollTimer) return; poll();
+  pollTimer = setInterval(() => { if (document.visibilityState === 'visible') poll(); }, POLL_MS);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') poll(); });
+}
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'note') poll(); });
+const syncOrig = sync;
+async function syncAll() { startPopups(); return syncOrig(); }
+window.SLPush = { supported, enable, disable, sync: syncAll, poll };
 })();
