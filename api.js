@@ -49,9 +49,22 @@ const USER_RE = /^[a-z0-9_]{3,30}$/, EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/, UU
 const isUuid = v => typeof v === 'string' && UUID_RE.test(v);
 /* Ô nhập mã học sinh / số điện thoại: không cho gõ ký tự sai thay vì để người dùng nhập sai rồi bị khóa.
    mode: 'both' (mã 5 số hoặc SĐT), 'code' (chỉ mã 5 số), 'phone' (chỉ SĐT). onState(valid, kind) được gọi mỗi khi đổi. */
+const IDENT_MSG = 'Chỉ nhập 5 số hoặc số điện thoại. VD: 30333, 0123456789';
+const hasFhp = (v) => /f\s*h\s*p/i.test(String(v || ''));
+function identErrEl(input) {
+  let e = input.nextElementSibling;
+  if (!e || !e.classList.contains('field-err')) { e = document.createElement('div'); e.className = 'field-err'; e.setAttribute('role', 'alert'); e.hidden = true; input.after(e); }
+  return e;
+}
+function showIdentErr(input, on) { const e = identErrEl(input); e.textContent = on ? IDENT_MSG : ''; e.hidden = !on; input.setAttribute('aria-invalid', on ? 'true' : 'false'); }
 function bindIdentInput(input, mode, onState) {
   const PH = /^(\+?84|0)[0-9]{8,10}$/;
   const clean = () => {
+    if (hasFhp(input.value)) { // có chữ FHP: giữ nguyên để người dùng thấy, báo lỗi màu đỏ bên dưới
+      input.setCustomValidity(IDENT_MSG); showIdentErr(input, true);
+      if (onState) onState(false, 'partial', input.value); return;
+    }
+    showIdentErr(input, false);
     let v = input.value;
     if (mode === 'phone' || (mode === 'both' && /^[+0]/.test(v))) v = v.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '').slice(0, 12);
     else v = v.replace(/[^0-9]/g, '').slice(0, 5);
@@ -96,7 +109,7 @@ const auth = {
     if (r.data.user && r.data.user.identities && r.data.user.identities.length === 0) throw new ApiError('conflict', 'Tài khoản đã tồn tại.');
     return r.data.session ? 'signed_in' : 'confirm_email';
   },
-  bindIdentInput,
+  bindIdentInput, hasFhp, IDENT_MSG, showIdentErr,
   validPhone: (p) => /^(\+?84|0)[0-9]{8,10}$/.test(p || ''),
   validateTeacher(f) {
     const e = {};

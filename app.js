@@ -142,6 +142,7 @@
     $("#authRoot").querySelectorAll("[data-auth-mode]").forEach((b) => (b.onclick = () => showAuth(b.dataset.authMode)));
     $("#authForm").onsubmit = register ? registerAccount : loginAccount;
     if (register && $("#authIdent")) A.auth.bindIdentInput($("#authIdent"), "both");
+    if (!register && $("#authLogin")) { const li = $("#authLogin"), chk = () => A.auth.showIdentErr(li, A.auth.hasFhp(li.value)); li.addEventListener("input", chk); chk(); }
     const rb = $("#codeReportBtn"); if (rb) rb.onclick = () => showCodeReport(v);
   }
   function showCodeReport(v = {}, message = "") {
@@ -191,6 +192,7 @@
   async function loginAccount(e) {
     e.preventDefault();
     const form = e.currentTarget, v = formVals(form), pw = String(new FormData(form).get("password") || "");
+    if (A.auth.hasFhp(v.login)) { const li = $("#authLogin"); A.auth.showIdentErr(li, true); li.focus(); return; }
     if (!v.login || pw.length < 8) return showAuth("login", "Lỗi: Nhập mã học sinh/số điện thoại và mật khẩu (tối thiểu 8 ký tự).", v);
     busy(form, true);
     let profile;
