@@ -142,7 +142,18 @@
     $("#authRoot").querySelectorAll("[data-auth-mode]").forEach((b) => (b.onclick = () => showAuth(b.dataset.authMode)));
     $("#authForm").onsubmit = register ? registerAccount : loginAccount;
     if (register && $("#authIdent")) A.auth.bindIdentInput($("#authIdent"), "both");
-    if (!register && $("#authLogin")) { const li = $("#authLogin"), chk = () => A.auth.showIdentErr(li, A.auth.hasFhp(li.value)); li.addEventListener("input", chk); chk(); }
+    if (!register && $("#authLogin")) {
+      const li = $("#authLogin"), lab = $('label[for="authLogin"]'), lnk = document.createElement("button");
+      A.auth.bindIdentInput(li, "both"); li.setAttribute("autocomplete", "username");
+      lnk.type = "button"; lnk.className = "link-btn"; lnk.textContent = "Đăng nhập bằng tên tài khoản"; li.after(lnk);
+      lnk.onclick = () => {
+        const text = li.dataset.textMode !== "1";
+        li.dataset.textMode = text ? "1" : ""; li.setAttribute("inputmode", text ? "text" : "tel");
+        li.placeholder = text ? "Tên tài khoản" : "Mã học sinh hoặc số điện thoại"; if (lab) lab.textContent = text ? "Tên tài khoản" : "Mã học sinh hoặc số điện thoại";
+        lnk.textContent = text ? "Đăng nhập bằng mã học sinh / số điện thoại" : "Đăng nhập bằng tên tài khoản";
+        A.auth.showIdentErr(li, false); li.value = ""; li.focus();
+      };
+    }
     const rb = $("#codeReportBtn"); if (rb) rb.onclick = () => showCodeReport(v);
   }
   function showCodeReport(v = {}, message = "") {
@@ -192,7 +203,6 @@
   async function loginAccount(e) {
     e.preventDefault();
     const form = e.currentTarget, v = formVals(form), pw = String(new FormData(form).get("password") || "");
-    if (A.auth.hasFhp(v.login)) { const li = $("#authLogin"); A.auth.showIdentErr(li, true); li.focus(); return; }
     if (!v.login || pw.length < 8) return showAuth("login", "Lỗi: Nhập mã học sinh/số điện thoại và mật khẩu (tối thiểu 8 ký tự).", v);
     busy(form, true);
     let profile;
