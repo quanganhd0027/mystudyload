@@ -507,13 +507,9 @@
     let ts = state.tasks.filter(
       (t) => t.ownerId === ownerId && t.status !== "done",
     );
-    // Preserve completed/history and only rebuild future planned sessions.
-    ts.forEach(
-      (t) =>
-        (t.sessions = (t.sessions || []).filter(
-          (s) => s.completed || new Date(s.startAt) <= now(),
-        )),
-    );
+    // Giữ buổi đã học thật (completed / không phải kế hoạch); mọi buổi kế hoạch chưa học (kể cả đã trôi qua) đều xếp lại
+    // từ phần "còn cần học", nếu không sẽ bị tính trùng.
+    ts.forEach((t) => (t.sessions = (t.sessions || []).filter((s) => s.completed || !s.planned)));
     let pending = ts
       .filter((t) => new Date(t.dueAt) >= now())
       .sort(
@@ -531,40 +527,46 @@
       let d = new Date(stamp);
       days[localDay(d)] = rangesForDay(d, ownerId);
     }
+    // đặt tối đa `want` phút của bài t vào ngày `day`; trả về số phút đã đặt
+    let place = (t, day, want, due) => {
+      let key = localDay(day), ranges = days[key] || rangesForDay(day, ownerId), placed = 0;
+      for (let i = 0; i < ranges.length && placed < want; i++) {
+        let [a, b] = ranges[i];
+        a = new Date(Math.max(a, now()));
+        b = new Date(Math.min(b, due));
+        if (b <= a) continue;
+        let take = Math.min(want - placed, Math.floor((b - a) / 60000), 90);
+        if (take <= 0) continue;
+        t.sessions.push({ id: uid("s"), startAt: iso(a), endAt: iso(addMinutes(a, take)), minutes: take, completed: false, planned: true });
+        placed += take;
+        ranges[i] = [addMinutes(a, take), b];
+      }
+      days[key] = ranges;
+      return placed;
+    };
     for (let t of pending) {
-      let remaining = Math.max(0, Number(t.remainingWorkMinutes) || 0);
-      // Existing current-day time and past planned sessions are immutable; only place remaining work in future free ranges.
-      for (
-        let stamp = first.getTime();
-        stamp <= dayStart(new Date(t.dueAt)).getTime() && remaining > 0;
-        stamp += DAY
-      ) {
-        let day = new Date(stamp),
-          key = localDay(day),
-          ranges = days[key] || rangesForDay(day, ownerId);
-        let due = new Date(t.dueAt);
-        for (let i = 0; i < ranges.length && remaining > 0; i++) {
-          let [a, b] = ranges[i];
-          a = new Date(Math.max(a, now()));
-          b = new Date(Math.min(b, due));
-          if (b <= a) continue;
-          let available = Math.floor((b - a) / 60000);
-          if (available <= 0) continue;
-          let take = Math.min(remaining, available, 90);
-          if (take > 0) {
-            t.sessions.push({
-              id: uid("s"),
-              startAt: iso(a),
-              endAt: iso(addMinutes(a, take)),
-              minutes: take,
-              completed: false,
-              planned: true,
-            });
-            remaining -= take;
-            ranges[i] = [addMinutes(a, take), b];
-          }
-        }
-        days[key] = ranges;
+      let remaining = Math.max(0, Number(t.remainingWorkMinutes) || 0),
+        due = new Date(t.dueAt),
+        from = Math.max(first.getTime(), t.startAtSet ? dayStart(new Date(t.startAtSet)).getTime() : 0),
+        dueDay = dayStart(due).getTime(),
+        stamps = [];
+      if (from > dueDay) from = first.getTime();
+      for (let st = from; st <= dueDay; st += DAY) {
+        // chỉ chia cho những ngày còn chỗ trống trước hạn nộp
+        let rg = days[localDay(new Date(st))] || rangesForDay(new Date(st), ownerId);
+        if (rg.some(([a, b]) => Math.min(b, due) > Math.max(a, now()))) stamps.push(st);
+      }
+      if (!stamps.length) stamps.push(from);
+      // Lượt 1: chia đều số phút cho các ngày từ ngày bắt đầu đến hạn nộp (không dồn hết vào một ngày)
+      let per = Math.ceil(remaining / Math.max(1, stamps.length));
+      for (let st of stamps) {
+        if (remaining <= 0) break;
+        remaining -= place(t, new Date(st), Math.min(per, remaining), due);
+      }
+      // Lượt 2: phần còn thiếu (ngày kín lịch) lấp vào chỗ trống sớm nhất
+      for (let st of stamps) {
+        if (remaining <= 0) break;
+        remaining -= place(t, new Date(st), remaining, due);
       }
       t.unscheduledMinutes = remaining;
     }
