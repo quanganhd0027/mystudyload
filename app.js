@@ -348,7 +348,7 @@
       // Quản trị viên không học: bỏ Nhiệm vụ, Lịch cá nhân, Lớp học & dự án, Thư viện (và Quản lý lớp của giáo viên – đã có "Lớp học (Admin)")
       const hide = new Set(["tasks", "calendar", "classes", "classmgmt", "library"]);
       items.splice(0, items.length, ...items.filter(([p]) => !hide.has(p)));
-      items.splice(1, 0, ["users", "☰ Người dùng"], ["adminclasses", "⌂ Lớp học (Admin)"], ["subjects", "✎ Môn học"], ["audit", "⛨ Nhật ký kiểm toán"]);
+      items.splice(1, 0, ["users", "☰ Người dùng"], ["adminclasses", "⌂ Lớp học (Admin)"], ["subjects", "✎ Môn học"], ["audit", "⛨ Nhật ký kiểm toán"], ["switchacct", "⇄ Đổi tài khoản"]);
       const qa = $("#quickAdd"); if (qa) qa.classList.add("hidden");
     } else { const qa = $("#quickAdd"); if (qa) qa.classList.remove("hidden"); }
     const dataItem = ["datahub", "▥ Dữ liệu"];
