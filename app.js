@@ -453,11 +453,11 @@
     let start = dayStart(date),
       end = new Date(start.getTime() + DAY),
       free = [];
-    // Demo default availability 16:00-22:00 on weekdays, 09:00-22:00 weekends; subtract busy blocks.
+    // Mặc định khi chưa khai báo: rảnh 3 tiếng, 19:00-22:00 mỗi ngày; trừ các khoảng bận đã khai báo.
     let dow = start.getDay(),
       baseStart = new Date(start),
       baseEnd = new Date(start);
-    baseStart.setHours(dow === 0 || dow === 6 ? 9 : 16, 0, 0, 0);
+    baseStart.setHours(19, 0, 0, 0);
     baseEnd.setHours(22, 0, 0, 0);
     free.push([baseStart, baseEnd]);
     for (let b of state.busy.filter((x) => x.ownerId === ownerId)) {
@@ -1344,7 +1344,7 @@
     let u = current();
     pageHead("Cài đặt & dữ liệu", "Thiết lập lịch học và quản lý tài khoản.");
     $("#content").innerHTML =
-      `<div class="grid"><div class="card span-6"><h2>Thời gian rảnh và bận</h2><p class="muted">Mặc định có thời gian học 16:00–22:00 ngày thường, 09:00–22:00 cuối tuần. Các khoảng bận bên dưới được trừ khỏi sức chứa.</p><button data-action="busy">+ Thêm khoảng bận lặp lại</button><div class="stack" style="margin-top:12px">${
+      `<div class="grid"><div class="card span-6"><h2>Thời gian rảnh và bận</h2><p class="muted">Mặc định có 3 tiếng học mỗi ngày, từ 19:00 đến 22:00. Các khoảng bận bên dưới được trừ khỏi sức chứa.</p><button data-action="busy">+ Thêm khoảng bận lặp lại</button><div class="stack" style="margin-top:12px">${
         state.busy
           .filter((b) => b.ownerId === u.id)
           .map(
