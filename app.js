@@ -352,6 +352,16 @@
       items.splice(1, 0, ["users", "☰ Người dùng"], ["adminclasses", "⌂ Lớp học (Admin)"], ["subjects", "✎ Môn học"], ["audit", "⛨ Nhật ký kiểm toán"], ["switchacct", "⇄ Đổi tài khoản"]);
       const qa = $("#quickAdd"); if (qa) qa.classList.add("hidden");
     } else { const qa = $("#quickAdd"); if (qa) qa.classList.remove("hidden"); }
+    // Rút gọn menu: Thư viện chỉ là bản demo → ẩn với mọi vai trò (mã trang vẫn còn)
+    { const hideAll = new Set(["library"]);
+      if (!isAdmin() && current().role === "student") {
+        // học sinh: ẩn Quản lý lớp (chỉ cán bộ lớp), Lớp học & dự án (chỉ khi thuộc dự án nhóm), Báo cáo
+        const u0 = current(), inProj = state.projects.some((p) => (p.memberIds || []).includes(u0.id) || (p.groups || []).some((g) => (g.memberIds || []).includes(u0.id)));
+        hideAll.add("classmgmt"); hideAll.add("reports"); if (!inProj) hideAll.add("classes");
+        const ci = items.find(([p]) => p === "classes"); if (ci) ci[1] = "♧ Dự án nhóm";
+      }
+      const ca = items.find(([p]) => p === "calendar"); if (ca && !isTeacher()) ca[1] = "▦ Xếp lịch";
+      items.splice(0, items.length, ...items.filter(([p]) => !hideAll.has(p))); }
     const dataItem = ["datahub", "▥ Dữ liệu"];
     if (isAdmin() || current().role === "teacher") items.push(dataItem);
     if (isAdmin() || current().role === "teacher") items.push(["discipline", "✎ Điểm nề nếp"]);
@@ -359,8 +369,10 @@
     $("#nav").innerHTML = items.map(([p, l]) => `<button data-page="${p}">${l}</button>`).join("");
     if (!isAdmin() && current().role === "student") { // cán bộ lớp (học sinh) cũng có trang Dữ liệu
       const meId = current().id;
-      A.sb.from("class_officer_roles").select("id,classes(name)").eq("user_id", meId).is("ended_at", null).in("role", ["class_president", "academic_vp"])
-        .then((r) => { if (r.data && r.data.length) { myOfficer = [...new Set(r.data.map((x) => x.classes && x.classes.name).filter(Boolean))]; const sn = document.querySelector(".side-note"); if (sn) sn.textContent = "Tài khoản: " + current().name + " · " + myRoleText(world.profile || current()); } if (r.data && r.data.length && !$("#nav [data-page=datahub]")) { const st = $("#nav [data-page=settings]"); const b = document.createElement("button"); b.dataset.page = "datahub"; b.textContent = dataItem[1]; st.before(b); b.classList.toggle("active", page === "datahub"); }
+      A.sb.from("class_officer_roles").select("id,role,classes(name)").eq("user_id", meId).is("ended_at", null)
+        .then((rAll) => { const r = { data: (rAll.data || []).filter((x) => x.role === "class_president" || x.role === "academic_vp") };
+          if (rAll.data && rAll.data.length && !$("#nav [data-page=classmgmt]")) { const stc = $("#nav [data-page=settings]"); const bc = document.createElement("button"); bc.dataset.page = "classmgmt"; bc.textContent = "⚑ Quản lý lớp"; stc.before(bc); bc.classList.toggle("active", page === "classmgmt"); }
+          if (r.data && r.data.length) { myOfficer = [...new Set(r.data.map((x) => x.classes && x.classes.name).filter(Boolean))]; const sn = document.querySelector(".side-note"); if (sn) sn.textContent = "Tài khoản: " + current().name + " · " + myRoleText(world.profile || current()); } if (r.data && r.data.length && !$("#nav [data-page=datahub]")) { const st = $("#nav [data-page=settings]"); const b = document.createElement("button"); b.dataset.page = "datahub"; b.textContent = dataItem[1]; st.before(b); b.classList.toggle("active", page === "datahub"); }
           if (r.data && r.data.length && !$("#nav [data-page=discipline]")) { const st2 = $("#nav [data-page=settings]"); const b2 = document.createElement("button"); b2.dataset.page = "discipline"; b2.textContent = "✎ Điểm nề nếp"; st2.before(b2); b2.classList.toggle("active", page === "discipline"); } }, () => {});
     }
   }
@@ -1869,7 +1881,7 @@
       toast("Bạn không có quyền xem dự án này.");
       return;
     }
-    let body = `<div class="stack"><p class="muted">${esc(state.classes.find((c) => c.id === p.classId)?.name || "")} · Thành viên dự án: ${p.memberIds.length}</p><div class="between"><h3>Nhóm</h3>${canTeacher ? '<button class="small secondary" id="addGroup">+ Nhóm thủ công</button>' : ""}</div>${p.groups.map((g) => `<div class="item"><div><div class="item-title">${esc(g.name)} ${g.leaderId ? "· Trưởng nhóm: " + esc(state.users.find((x) => x.id === g.leaderId)?.name || "") : "· Không có trưởng nhóm"}</div><div class="item-meta">${g.memberIds.map((mid) => esc(state.users.find((x) => x.id === mid)?.name || "")).join(", ") || "Chưa có thành viên"}</div></div>${canTeacher ? `<button class="small secondary" data-action="edit-group" data-id="${g.id}" data-project="${p.id}">Sửa nhóm</button>` : ""}</div>`).join("")}<div class="between"><h3>Nhiệm vụ dự án</h3>${canTeacher || group ? '<button class="small" id="addProjectTask">+ Nhiệm vụ</button>' : ""}</div>${
+    let body = `<div class="stack"><p class="muted">${esc(state.classes.find((c) => c.id === p.classId)?.name || "")} · Thành viên dự án: ${p.memberIds.length}</p><div class="between"><h3>Nhóm</h3>${canTeacher ? '<button class="small secondary" id="addGroup">+ Nhóm thủ công</button>' : ""}</div>${p.groups.map((g) => `<div class="item"><div><div class="item-title">${esc(g.name)} ${g.leaderId === u.id ? '<span class="badge blue">Bạn là trưởng nhóm</span> ' : ""}${g.leaderId ? "· Trưởng nhóm: " + esc(state.users.find((x) => x.id === g.leaderId)?.name || "") : "· Không có trưởng nhóm"}</div><div class="item-meta">${g.memberIds.map((mid) => esc(state.users.find((x) => x.id === mid)?.name || "")).join(", ") || "Chưa có thành viên"}</div></div>${canTeacher ? `<button class="small secondary" data-action="edit-group" data-id="${g.id}" data-project="${p.id}">Sửa nhóm</button>` : ""}</div>`).join("")}<div class="between"><h3>Nhiệm vụ dự án</h3>${canTeacher || group ? '<button class="small" id="addProjectTask">+ Nhiệm vụ</button>' : ""}</div>${
       p.tasks
         .map((t) => {
           let taskGroup = p.groups.find((g) =>
