@@ -234,6 +234,7 @@
     schedule(profile.id);
     render();
     afterLoginChecks(profile);
+    try { dailyHomework(); } catch (e) { /* bỏ qua */ }
     window.SLPush?.sync();
   }
   /* Sau khi đăng nhập: (1) nếu mã HS bị gỡ thì bắt nhập lại; (2) báo "mã học sinh của bạn đã được lấy lại" */
@@ -626,6 +627,7 @@
     );
     if (page === "dashboard") renderDashboard();
     if (page === "tasks") renderTasks();
+    if (page !== "calendar") calDay = null;
     if (page === "calendar") renderCalendar();
     if (page === "classes") renderClasses();
     if (page === "library") renderLibrary();
@@ -877,7 +879,7 @@
     $("#taskFilter").onchange = draw;
     draw();
   }
-  let calTab = "todo";
+  let calTab = "todo", calDay = null;
   const SUBJ_FIXED = { toan: "#ef4444", van: "#eab308", "ngu van": "#eab308", anh: "#84cc16", "tieng anh": "#84cc16", dia: "#0ea5e9", "dia li": "#0ea5e9", "dia ly": "#0ea5e9", su: "#f472b6", "lich su": "#f472b6", ly: "#6366f1", "vat li": "#6366f1", "vat ly": "#6366f1", hoa: "#14b8a6", "hoa hoc": "#14b8a6", sinh: "#22c55e", "sinh hoc": "#22c55e", tin: "#8b5cf6", "tin hoc": "#8b5cf6", gdcd: "#f97316" };
   const SUBJ_EXTRA = ["#3b4fd1", "#f97316", "#06b6d4", "#a855f7", "#64748b", "#d946ef", "#0d9488", "#b45309"];
   function subjColor(name) {
@@ -951,7 +953,7 @@
                   (x) =>
                     `<i class="wk-seg ${x.done ? "done" : ""}" style="height:${(x.m / max) * 100}%;background:${subjColor(x.t.subject)}" data-action="detail" data-id="${x.t.id}" title="${esc(x.t.subject || "")} — ${esc(x.t.title)}: ${fmtMin(x.m)}${x.done ? " (đã học)" : ""}"></i>`,
                 )
-                .join("")}</div></div><div class="wk-total">${tot ? fmtMin(tot) : "—"}</div></div>`;
+                .join("")}</div></div><div class="wk-total">${tot ? fmtMin(tot) : "—"}</div>${tot && !isTeacher() ? `<button class="small secondary wk-more" data-action="cal-day" data-day="${k}">Chi tiết</button>` : ""}</div>`;
             })
             .join("")}</div>`,
       )
@@ -994,9 +996,61 @@
       .join("");
     return `<div class="cal-layout"><div class="cal-main">${rows}</div>${calLegend([...subs].sort())}</div><div class="footer-note">Mỗi thanh là một bài tập, kéo từ lúc được giao đến hạn nộp. Thanh viền đỏ là bài quá hạn; bài đã xong thì mờ và có dấu ✓. Bài kéo qua cuối tuần sẽ nối sang hàng dưới.</div>`;
   }
+  function calDayLabel(k) {
+    let d = new Date(k + "T00:00:00"), n = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+    return n[d.getDay()] + " " + d.getDate() + "/" + (d.getMonth() + 1);
+  }
+  function calDayItems(u, k) {
+    let out = [];
+    state.tasks.filter((t) => t.ownerId === u.id).forEach((t) =>
+      (t.sessions || []).forEach((x) => {
+        let m = Number(x.minutes) || 0;
+        if (m > 0 && localDay(x.startAt) === k) out.push({ t, m, done: !!x.completed, at: x.startAt });
+      }),
+    );
+    return out;
+  }
+  function calDayHtml(u, k) {
+    let items = calDayItems(u, k), bySub = {};
+    items.forEach((x) => (bySub[x.t.subject || "Chưa rõ môn"] ||= []).push(x));
+    let subs = Object.keys(bySub).sort((a, b) => a.localeCompare(b, "vi")), total = items.reduce((a, x) => a + x.m, 0);
+    let hm = (v) => { let d = new Date(v); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+    let blocks = subs.map((sj) => {
+      let list = bySub[sj].sort((a, b) => new Date(a.at) - new Date(b.at)), sum = list.reduce((a, x) => a + x.m, 0);
+      return `<div class="day-subj" style="background:${subjColor(sj)}"><div class="day-subj-head"><b>${esc(sj)}</b><b>${fmtMin(sum)}</b></div>${list.map((x) => `<div class="day-task"><div><div class="day-task-title">${esc(x.t.title)}${x.done ? " ✓" : ""}</div><div class="day-task-meta">${hm(x.at)} · ${fmtMin(x.m)} · hạn ${fmtDate(x.t.dueAt)} · ${x.t.status === "done" ? "đã xong" : x.t.status === "doing" ? "đang làm" : "chưa bắt đầu"}</div></div><button class="small" data-action="detail" data-id="${x.t.id}">Chi tiết</button></div>`).join("")}</div>`;
+    }).join("");
+    let ks = Object.keys(Object.fromEntries(calWeeks().flatMap((w) => w.days).map((d) => [localDay(d), 1])));
+    let i = ks.indexOf(k);
+    return `<div class="card"><div class="section-head"><button class="secondary small" data-action="cal-back">← Về lịch tuần</button><div class="row" style="gap:6px"><button class="small secondary" data-action="cal-day" data-day="${ks[i - 1] || k}" ${i <= 0 ? "disabled" : ""}>‹ Hôm trước</button><button class="small secondary" data-action="cal-day" data-day="${ks[i + 1] || k}" ${i < 0 || i >= ks.length - 1 ? "disabled" : ""}>Hôm sau ›</button></div></div><h2 style="margin:8px 0 12px">${calDayLabel(k)}</h2>${blocks || '<div class="empty">Ngày này không có bài tập nào được xếp.</div>'}${total ? `<div class="day-total"><span>Tổng</span><b>${fmtMin(total)}</b></div>` : ""}</div>`;
+  }
+  /* Thông báo mỗi ngày: "Hôm nay bạn có bài tập" → bấm Chi tiết mở thẳng Xếp lịch hôm nay */
+  function dailyHomework() {
+    let u = current();
+    if (!u || isTeacher() || isAdmin()) return;
+    let k = localDay(now()), items = calDayItems(u, k).filter((x) => x.t.status !== "done" && !x.done);
+    if (!items.length) return;
+    notifyUser(u.id, "Hôm nay bạn có bài tập", "Ngày " + calDayLabel(k), "daily", "day-" + k);
+    let pk = "sl_daily_" + u.id + "_" + k;
+    try { if (localStorage.getItem(pk)) return; localStorage.setItem(pk, "1"); } catch (e) { /* vẫn hiện */ }
+    let root = $("#toastRoot");
+    if (!root) return;
+    let n = new Set(items.map((x) => x.t.subject)).size, tot = items.reduce((a, x) => a + x.m, 0);
+    let pop = document.createElement("div");
+    pop.className = "daily-pop"; pop.setAttribute("role", "alert");
+    pop.innerHTML = `<b>Thông báo</b><p>Hôm nay bạn có bài tập · ${n} môn · ${fmtMin(tot)}</p><div class="daily-pop-act"><button class="small secondary" data-x>Để sau</button><button class="small" data-open>Chi tiết</button></div>`;
+    document.body.appendChild(pop);
+    pop.querySelector("[data-x]").onclick = () => pop.remove();
+    pop.querySelector("[data-open]").onclick = () => { pop.remove(); openDay(k); };
+  }
+  function openDay(k) { calTab = "todo"; calDay = k; page = "calendar"; render(); }
   function renderCalendar() {
     let u = current(),
       weeks = calWeeks();
+    if (calDay && !isTeacher()) {
+      pageHead("Xếp lịch hôm nay".replace("hôm nay", calDay === localDay(now()) ? "hôm nay" : calDayLabel(calDay)), "Các môn app đã xếp cho ngày này. Bấm một bài để xem chi tiết và bắt đầu học.");
+      $("#content").innerHTML = calDayHtml(u, calDay);
+      return;
+    }
     pageHead(
       isTeacher() ? "Lịch nhiệm vụ" : "Lịch học cá nhân",
       isTeacher() ? "Xem khối lượng và hạn nộp các bài đã giao: tuần này và tuần sau." : "Xem lịch học app đã xếp và bài tập được giao: tuần này và tuần sau.",
@@ -1268,7 +1322,7 @@
       ? ns
           .map(
             (n) =>
-              `<div class="item"><div><div class="item-title">${esc(n.title)} ${n.read ? "" : '<span class="badge">Mới</span>'}</div><div>${esc(n.body)}</div><div class="item-meta">${fmtDate(n.createdAt)}</div></div>${n.read ? "" : `<button class="small secondary" data-action="read-notice" data-id="${n.id}">Đã đọc</button>`}</div>`,
+              `<div class="item"><div><div class="item-title">${esc(n.title)} ${n.read ? "" : '<span class="badge">Mới</span>'}</div><div>${esc(n.body)}</div><div class="item-meta">${fmtDate(n.createdAt)}</div></div><div class="actions">${n.type === "daily" ? `<button class="small" data-action="open-day" data-day="${String(n.taskId || "").slice(4)}">Chi tiết</button>` : ""}${n.read ? "" : `<button class="small secondary" data-action="read-notice" data-id="${n.id}">Đã đọc</button>`}</div></div>`,
           )
           .join("")
       : '<div class="empty">Không có thông báo.</div>';
@@ -2190,7 +2244,19 @@
         break;
       case "cal-tab":
         calTab = el.dataset.tab === "load" ? "load" : "todo";
+        calDay = null;
         render();
+        break;
+      case "cal-day":
+        calDay = el.dataset.day;
+        render();
+        break;
+      case "cal-back":
+        calDay = null;
+        render();
+        break;
+      case "open-day":
+        openDay(el.dataset.day);
         break;
       case "cal-prev":
         shiftCalendar(-1);
@@ -2499,6 +2565,7 @@
   }
   function checkRemindersQuiet() {
     let u = current();
+    try { dailyHomework(); } catch (e) { /* bỏ qua */ }
     for (let t of state.tasks.filter(
       (t) => t.ownerId === u.id && t.status !== "done",
     )) {

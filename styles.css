@@ -213,3 +213,13 @@ th{font-size:12px;text-transform:none;letter-spacing:0}
 /* Xếp hạng & điểm nề nếp */
 .rk-me{background:#f3f1ff}.rk-me td{font-weight:600}.badge.blue{background:#e6edff;color:#2b4ac2}
 #rkBody .av,.rk-me .av{vertical-align:middle;margin-right:6px}
+
+.wk-more{margin-top:6px;width:100%;font-size:11px;padding:4px 6px}
+.day-subj{border-radius:14px;color:#fff;padding:10px 14px;margin-bottom:10px}
+.day-subj-head{display:flex;justify-content:space-between;font-size:18px;margin-bottom:6px}
+.day-task{display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(255,255,255,.18);border-radius:10px;padding:8px 10px;margin-top:6px}
+.day-task-title{font-weight:600}.day-task-meta{font-size:12px;opacity:.9}
+.day-task .small{background:#fff;color:#222;border:0}
+.day-total{display:flex;justify-content:space-between;font-size:18px;background:#efe3b8;color:#3a3220;border-radius:14px;padding:14px;margin-top:6px}
+.daily-pop{position:fixed;top:16px;right:16px;z-index:9998;background:#fff;border:2px solid #222;border-radius:18px;padding:14px 16px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:300px}
+.daily-pop p{margin:6px 0 10px}.daily-pop-act{display:flex;gap:8px;justify-content:flex-end}
