@@ -1,24 +1,44 @@
-/* StudyLoad · switch.js — Admin đổi nhanh sang tài khoản khác để kiểm thử, có nút nổi "Về tài khoản admin".
-   Máy chủ (Edge Function admin-switch) chỉ cấp phiên khi người gọi là admin; phiên admin được cất tạm trên trình duyệt này. */
+/* StudyLoad · switch.js — Admin đổi nhanh sang tài khoản khác để kiểm thử.
+   Máy chủ (Edge Function admin-switch) chỉ cấp phiên khi người gọi là admin; phiên admin được cất tạm trên trình duyệt này.
+   Khi đang ở tài khoản khác, nút nổi có 2 nút: "Về tài khoản admin" và "Đổi tài khoản khác" (dùng phiên admin đã cất). */
 (() => {
 'use strict';
-const SL = window.SL, A = window.SLApi, { esc, ui, $ } = SL, sb = A.sb;
+const SL = window.SL, A = window.SLApi, { esc, ui, $ } = SL, sb = A.sb, cfg = window.STUDYLOAD_CONFIG || {};
 const KEY = 'sl_admin_return';
 const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } };
 const roleName = (u) => (u.role === 'student' && u.is_officer ? 'Cán bộ lớp' : SL.roleLabel(u.role));
 
-async function switchTo(u) {
-  const cur = (await sb.auth.getSession()).data.session;
-  if (!cur) return SL.toast('Phiên đăng nhập đã hết hạn.');
+/* Client riêng chạy bằng phiên admin đã cất (tự làm mới token và cất lại token mới) */
+async function adminClient() {
+  const s = read(); if (!s) throw new Error('Không còn phiên admin.');
+  const c = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
+  const r = await c.auth.setSession({ access_token: s.access_token, refresh_token: s.refresh_token });
+  if (r.error || !r.data.session) { localStorage.removeItem(KEY); throw new Error('Phiên admin đã hết hạn, hãy đăng nhập lại bằng tài khoản admin.'); }
+  localStorage.setItem(KEY, JSON.stringify({ ...s, access_token: r.data.session.access_token, refresh_token: r.data.session.refresh_token }));
+  return c;
+}
+async function searchAccounts(q, role) {
   const prev = read();
-  const { data, error } = await sb.functions.invoke('admin-switch', { body: { user_id: u.user_id } });
+  if (prev) { const c = await adminClient(); const r = await c.rpc('admin_search_accounts', { p_q: q, p_role: role, p_limit: 30, p_offset: 0 }); if (r.error) throw r.error; return r.data || []; }
+  return A.rpc('admin_search_accounts', { p_q: q, p_role: role, p_limit: 30, p_offset: 0 });
+}
+
+async function switchTo(u) {
+  const prev = read();
+  let client = sb;
+  if (prev) client = await adminClient();
+  else {
+    const cur = (await sb.auth.getSession()).data.session;
+    if (!cur) return SL.toast('Phiên đăng nhập đã hết hạn.');
+  }
+  const { data, error } = await client.functions.invoke('admin-switch', { body: { user_id: u.user_id } });
   if (error || !data || !data.token_hash) {
     let msg = (data && data.error) || '';
     try { if (!msg && error && error.context && error.context.json) msg = (await error.context.json()).error; } catch (e) { /* bỏ qua */ }
     return SL.toast(msg || 'Không đổi được tài khoản.');
   }
   // chỉ cất phiên admin thật; nếu đang ở tài khoản khác thì giữ phiên admin đã cất từ trước
-  if (!prev) localStorage.setItem(KEY, JSON.stringify({ access_token: cur.access_token, refresh_token: cur.refresh_token, name: SL.current().name }));
+  if (!prev) { const cur = (await sb.auth.getSession()).data.session; localStorage.setItem(KEY, JSON.stringify({ access_token: cur.access_token, refresh_token: cur.refresh_token, name: SL.current().name })); }
   const r = await sb.auth.verifyOtp({ token_hash: data.token_hash, type: 'magiclink' });
   if (r.error) { if (!prev) localStorage.removeItem(KEY); return SL.toast('Không đăng nhập được: ' + r.error.message); }
   location.reload();
@@ -32,34 +52,61 @@ async function back() {
   location.reload();
 }
 
+/* Bảng chọn tài khoản dùng chung (trang "Đổi tài khoản" và nút nổi) */
+function pickerHtml() {
+  return `<div class="toolbar"><input id="swq" type="search" placeholder="Tìm theo tên, mã học sinh, số điện thoại, tên tài khoản…" style="flex:1;min-width:220px"><select id="swr"><option value="all">Mọi vai trò</option><option value="student">Học sinh</option><option value="officer">Cán bộ lớp</option><option value="teacher">Giáo viên</option><option value="admin">Quản trị viên</option></select></div><div id="swList" style="margin-top:12px"></div>`;
+}
+function bindPicker(root) {
+  const list = root.querySelector('#swList');
+  const load = async () => {
+    list.innerHTML = '<div class="muted">Đang tải…</div>';
+    let rows;
+    try { rows = await searchAccounts(root.querySelector('#swq').value.trim(), root.querySelector('#swr').value); } catch (e) { list.innerHTML = ui.empty(esc(e.message || 'Không tải được danh sách.')); return; }
+    const me = SL.current().id;
+    list.innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>Tên</th><th>Mã HS / SĐT</th><th>Vai trò</th><th></th></tr></thead><tbody>${rows.map((u, i) => `<tr><td>${esc(u.display_name || u.username || '')}</td><td>${esc(u.student_code || u.phone || '')}</td><td>${esc(roleName(u))}</td><td>${u.is_banned ? '<span class="muted">Đã khóa</span>' : u.user_id === me ? '<span class="muted">Đang dùng</span>' : `<button class="small" data-i="${i}">Vào tài khoản</button>`}</td></tr>`).join('')}</tbody></table></div>` : ui.empty('Không có tài khoản phù hợp.');
+    list.querySelectorAll('[data-i]').forEach((b) => (b.onclick = async () => { b.disabled = true; b.textContent = 'Đang vào…'; try { await switchTo(rows[+b.dataset.i]); } catch (e) { SL.toast(e.message || A.toApiError(e).message); } b.disabled = false; b.textContent = 'Vào tài khoản'; }));
+  };
+  let t; root.querySelector('#swq').oninput = () => { clearTimeout(t); t = setTimeout(load, 350); };
+  root.querySelector('#swr').onchange = load;
+  load();
+}
+
 SL.pages.switchacct = {
   title: 'Đổi tài khoản', sub: 'Vào nhanh một tài khoản bất kỳ để kiểm thử. Bấm nút "Về tài khoản admin" ở góc màn hình để quay lại.',
   render(el) {
     if (!SL.isAdmin() && !read()) { el.innerHTML = ui.empty('Chỉ quản trị viên mới dùng được chức năng này.'); return; }
-    el.innerHTML = `<div class="card"><div class="toolbar"><input id="swq" type="search" placeholder="Tìm theo tên, mã học sinh, số điện thoại, tên tài khoản…" style="flex:1;min-width:220px"><select id="swr"><option value="all">Mọi vai trò</option><option value="student">Học sinh</option><option value="officer">Cán bộ lớp</option><option value="teacher">Giáo viên</option><option value="admin">Quản trị viên</option></select></div><div id="swList" style="margin-top:12px"></div></div>`;
-    const load = () => ui.load($('#swList'), () => A.rpc('admin_search_accounts', { p_q: $('#swq').value.trim(), p_role: $('#swr').value, p_limit: 30, p_offset: 0 }), (rows) => {
-      $('#swList').innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>Tên</th><th>Mã HS / SĐT</th><th>Vai trò</th><th></th></tr></thead><tbody>${rows.map((u, i) => `<tr><td>${esc(u.display_name || u.username || '')}</td><td>${esc(u.student_code || u.phone || '')}</td><td>${esc(roleName(u))}</td><td>${u.is_banned ? '<span class="muted">Đã khóa</span>' : `<button class="small" data-i="${i}">Vào tài khoản</button>`}</td></tr>`).join('')}</tbody></table></div>` : ui.empty('Không có tài khoản phù hợp.');
-      $('#swList').querySelectorAll('[data-i]').forEach((b) => (b.onclick = async () => { b.disabled = true; b.textContent = 'Đang vào…'; try { await switchTo(rows[+b.dataset.i]); } catch (e) { SL.toast(A.toApiError(e).message); } b.disabled = false; b.textContent = 'Vào tài khoản'; }));
-    });
-    let t; $('#swq').oninput = () => { clearTimeout(t); t = setTimeout(load, 350); };
-    $('#swr').onchange = load;
-    load();
+    el.innerHTML = `<div class="card">${pickerHtml()}</div>`;
+    bindPicker(el);
   },
 };
 
-/* Nút nổi quay lại admin: hiện ở mọi trang khi máy này đang ở chế độ đổi tài khoản */
+function openPicker() {
+  if (document.getElementById('swPick')) return;
+  const o = document.createElement('div');
+  o.id = 'swPick';
+  o.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px';
+  o.innerHTML = `<div class="card" style="background:#fff;width:min(820px,100%);max-height:86vh;overflow:auto"><div class="section-head"><h2>Đổi sang tài khoản khác</h2><button class="small secondary" data-close>Đóng</button></div>${pickerHtml()}</div>`;
+  document.body.appendChild(o);
+  o.querySelector('[data-close]').onclick = () => o.remove();
+  o.addEventListener('click', (e) => { if (e.target === o) o.remove(); });
+  bindPicker(o);
+}
+
+/* Nút nổi khi máy này đang ở chế độ đổi tài khoản: [Đổi tài khoản khác] [Về tài khoản admin] */
 function floatBtn() {
   const s = read(), old = document.getElementById('swBack');
   if (!s) { if (old) old.remove(); return; }
   if (old) return;
-  const b = document.createElement('button');
-  b.id = 'swBack'; b.type = 'button';
-  b.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:9999;background:#b71c1c;color:#fff;border:0;border-radius:999px;padding:12px 18px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer';
-  b.textContent = '⇦ Về tài khoản admin';
-  b.onclick = () => { b.disabled = true; back(); };
-  document.body.appendChild(b);
+  const box = document.createElement('div');
+  box.id = 'swBack';
+  box.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end';
+  const st = 'border:0;border-radius:999px;padding:12px 18px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer;color:#fff;';
+  box.innerHTML = `<button type="button" data-other style="${st}background:#37474f">⇄ Đổi tài khoản khác</button><button type="button" data-back style="${st}background:#b71c1c">⇦ Về tài khoản admin</button>`;
+  box.querySelector('[data-other]').onclick = openPicker;
+  box.querySelector('[data-back]').onclick = (e) => { e.target.disabled = true; back(); };
+  document.body.appendChild(box);
 }
 setInterval(floatBtn, 1000); floatBtn();
 // đăng xuất thủ công thì bỏ phiên admin đã cất
-sb && sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT' && !window.__slSwitching) localStorage.removeItem(KEY); });
+sb && sb.auth.onAuthStateChange((ev) => { if (ev === 'SIGNED_OUT') localStorage.removeItem(KEY); });
 })();
