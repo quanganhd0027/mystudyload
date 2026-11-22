@@ -1039,8 +1039,9 @@
     pop.className = "daily-pop"; pop.setAttribute("role", "alert");
     pop.innerHTML = `<b>Thông báo</b><p>Hôm nay bạn có bài tập · ${n} môn · ${fmtMin(tot)}</p><div class="daily-pop-act"><button class="small secondary" data-x>Để sau</button><button class="small" data-open>Chi tiết</button></div>`;
     document.body.appendChild(pop);
-    pop.querySelector("[data-x]").onclick = () => pop.remove();
-    pop.querySelector("[data-open]").onclick = () => { pop.remove(); openDay(k); };
+    pop.style.cursor = "pointer";
+    pop.onclick = () => { pop.remove(); openDay(k); };
+    pop.querySelector("[data-x]").onclick = (e) => { e.stopPropagation(); pop.remove(); };
   }
   function openDay(k) { calTab = "todo"; calDay = k; page = "calendar"; render(); }
   function renderCalendar() {
@@ -1322,7 +1323,7 @@
       ? ns
           .map(
             (n) =>
-              `<div class="item"><div><div class="item-title">${esc(n.title)} ${n.read ? "" : '<span class="badge">Mới</span>'}</div><div>${esc(n.body)}</div><div class="item-meta">${fmtDate(n.createdAt)}</div></div><div class="actions">${n.type === "daily" ? `<button class="small" data-action="open-day" data-day="${String(n.taskId || "").slice(4)}">Chi tiết</button>` : ""}${n.read ? "" : `<button class="small secondary" data-action="read-notice" data-id="${n.id}">Đã đọc</button>`}</div></div>`,
+              `<div class="item" ${n.type === "daily" ? `data-action="open-day" data-day="${String(n.taskId || "").slice(4)}" style="cursor:pointer"` : ""}><div><div class="item-title">${esc(n.title)} ${n.read ? "" : '<span class="badge">Mới</span>'}</div><div>${esc(n.body)}</div><div class="item-meta">${fmtDate(n.createdAt)}</div></div><div class="actions">${n.type === "daily" ? `<button class="small" data-action="open-day" data-day="${String(n.taskId || "").slice(4)}">Chi tiết</button>` : ""}${n.read ? "" : `<button class="small secondary" data-action="read-notice" data-id="${n.id}">Đã đọc</button>`}</div></div>`,
           )
           .join("")
       : '<div class="empty">Không có thông báo.</div>';
