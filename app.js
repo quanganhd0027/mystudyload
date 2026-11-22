@@ -599,7 +599,7 @@
               (s) =>
                 localDay(s.startAt) === k &&
                 !s.completed &&
-                new Date(s.startAt) > now(),
+                new Date(s.endAt || s.startAt) > now(),
             )
             .reduce((a, s) => a + s.minutes, 0),
         0,
@@ -665,13 +665,7 @@
  <div class="card span-3"><div class="stat-label">Thời gian học đã xác nhận</div><div class="stat">${Math.round((mins / 60) * 10) / 10}h</div><div class="muted">Tổng thời gian đã xác nhận</div></div>
  <div class="card span-3"><div class="stat-label">Hạn nộp trong 24 giờ</div><div class="stat">${dueSoon.length}</div><div class="muted">Cần ưu tiên kiểm tra</div></div>
  <div class="card span-3"><div class="stat-label">Có thể trễ hạn</div><div class="stat">${risks.length}</div><div class="muted">Dựa trên sức chứa trước hạn</div></div>
- <div class="card span-7"><div class="section-head"><h2>Nhiệm vụ cần chú ý</h2><button class="secondary small" data-goto="tasks">Xem tất cả</button></div>${risks.length ? '<div class="notice red">Có nhiệm vụ có nguy cơ trễ hạn.</div>' + risks.map(taskCard).join("") : '<div class="notice green">Chưa phát hiện nhiệm vụ thiếu sức chứa trước hạn trong dữ liệu hiện tại.</div>'}${
-   tasks
-     .filter((t) => !risks.includes(t))
-     .slice(0, 3)
-     .map(taskCard)
-     .join("") || ""
- }</div>
+ <div class="card span-7">${isTeacher() ? `<div class="section-head"><h2>Nhiệm vụ cần chú ý</h2><button class="secondary small" data-goto="tasks">Xem tất cả</button></div>${risks.length ? '<div class="notice red">Có nhiệm vụ có nguy cơ trễ hạn.</div>' + risks.map(taskCard).join("") : '<div class="notice green">Chưa phát hiện nhiệm vụ thiếu sức chứa trước hạn trong dữ liệu hiện tại.</div>'}${tasks.filter((t) => !risks.includes(t)).slice(0, 3).map(taskCard).join("") || ""}` : todayTasksHtml(u, risks)}</div>
  <div class="card ${isTeacher() ? "span-12" : "span-5"}"><h2>${isTeacher() ? "Tiến độ từng học sinh" : "Khối lượng học trong 7 ngày tới"}</h2>${isTeacher() ? classProgress(state.classes.filter((c) => isAdmin() || c.teacherIds.includes(u.id))) : loadChart(u.id, 7)}<div class="footer-note">${isTeacher() ? "Số liệu dựa trên các nhiệm vụ thuộc lớp bạn phụ trách." : "Mức tải được tính từ thời gian đã xếp lịch so với thời gian có thể học. Thời gian bận và thời gian đã qua không được tính."}</div></div>
  <div class="card span-6"><h2>${isTeacher() ? "Nhiệm vụ sắp đến hạn" : "Lịch học sắp tới"}</h2>${
    isTeacher()
@@ -691,6 +685,22 @@
  )}</div>
  </div>`;
     SL.afterDashboard?.($("#content"));
+  }
+  function todayTasksHtml(u, risks) {
+    let k = localDay(now()), items = calDayItems(u, k), byTask = new Map();
+    items.forEach((x) => { let e = byTask.get(x.t.id) || { t: x.t, m: 0, first: x.at, done: true }; e.m += x.m; if (new Date(x.at) < new Date(e.first)) e.first = x.at; if (!x.done) e.done = false; byTask.set(x.t.id, e); });
+    // bài có hạn nộp trong hôm nay cũng là việc của hôm nay
+    state.tasks.filter((t) => t.ownerId === u.id && t.status !== "done" && localDay(t.dueAt) === k && !byTask.has(t.id)).forEach((t) => byTask.set(t.id, { t, m: 0, first: t.dueAt, done: false, dueToday: true }));
+    let list = [...byTask.values()].sort((a, b) => new Date(a.first) - new Date(b.first));
+    let hm = (v) => { let d = new Date(v); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+    let head = `<div class="section-head"><h2>Nhiệm vụ hôm nay</h2><button class="secondary small" data-action="open-day" data-day="${k}">Xem lịch hôm nay</button></div>`;
+    let risk = risks.length ? '<div class="notice red">Có nhiệm vụ có nguy cơ trễ hạn.</div>' : "";
+    if (!list.length) return head + risk + '<div class="notice green">Hôm nay bạn không có bài tập nào cần làm.</div>';
+    let total = list.reduce((a, e) => a + e.m, 0);
+    return head + risk + list.map((e) => {
+      let t = e.t, isRisk = (t.unscheduledMinutes || 0) > 0;
+      return `<div class="item"><div class="item-main"><div class="item-title">${esc(t.title)} ${e.done && e.m ? '<span class="badge green">Đã học xong</span>' : ""}${isRisk ? '<span class="badge red">Có thể trễ hạn</span>' : ""}</div><div class="item-meta"><b>${e.m ? "Hôm nay học " + fmtMin(e.m) + " · từ " + hm(e.first) : "Hạn nộp hôm nay lúc " + hm(t.dueAt)}</b></div><div class="item-meta">${esc(t.subject)} · Hạn nộp: ${fmtDate(t.dueAt)} · Còn cần học: ${fmtMinutes(t.remainingWorkMinutes)}</div></div><div class="actions"><button class="small" data-action="detail" data-id="${t.id}">Xem chi tiết</button>${t.status !== "done" ? `<button class="small secondary" data-action="study" data-id="${t.id}">Bắt đầu học</button>` : ""}</div></div>`;
+    }).join("") + `<div class="day-total" style="margin-top:10px"><span>Tổng hôm nay</span><b>${total ? fmtMin(total) : "—"}</b></div>`;
   }
   function teacherTasks(u) {
     let allowed = allowedTaskIds(u);
@@ -732,7 +742,7 @@
       .filter((t) => t.ownerId === owner && t.status !== "done")
       .flatMap((t) =>
         (t.sessions || [])
-          .filter((s) => !s.completed && new Date(s.startAt) > now())
+          .filter((s) => !s.completed && new Date(s.endAt || s.startAt) > now())
           .map((s) => ({ t, s })),
       )
       .sort((a, b) => new Date(a.s.startAt) - new Date(b.s.startAt))
@@ -2566,6 +2576,12 @@
   }
   function checkRemindersQuiet() {
     let u = current();
+    try {
+      if (isStudent() && state.tasks.some((t) => t.ownerId === u.id && t.status !== "done" && (t.sessions || []).some((x) => x.planned && !x.completed && new Date(x.endAt || x.startAt) <= now()))) {
+        schedule(u.id);
+        if (["dashboard", "calendar"].includes(page) && !document.querySelector(".modal-backdrop")) render();
+      }
+    } catch (e) { /* bỏ qua */ }
     try { dailyHomework(); } catch (e) { /* bỏ qua */ }
     for (let t of state.tasks.filter(
       (t) => t.ownerId === u.id && t.status !== "done",
