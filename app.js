@@ -343,7 +343,7 @@
   }
   function buildNav() {
     const items = [["dashboard", "◫ Tổng quan"], ["tasks", "☷ Nhiệm vụ"], ["calendar", "▦ Lịch cá nhân"], ["classes", "♧ Lớp học & dự án"],
-      ["classmgmt", "⚑ Quản lý lớp"], ["library", "▤ Thư viện"], ["reports", "◷ Báo cáo"], ["notifications", "✉ Thông báo"], ["profile", "☺ Hồ sơ"]];
+      ["classmgmt", "⚑ Quản lý lớp"], ["library", "▤ Thư viện"], ["reports", "◷ Báo cáo"], ["ranking", "★ Xếp hạng"], ["notifications", "✉ Thông báo"], ["profile", "☺ Hồ sơ"]];
     if (isAdmin()) {
       // Quản trị viên không học: bỏ Nhiệm vụ, Lịch cá nhân, Lớp học & dự án, Thư viện (và Quản lý lớp của giáo viên – đã có "Lớp học (Admin)")
       const hide = new Set(["tasks", "calendar", "classes", "classmgmt", "library"]);
@@ -353,12 +353,14 @@
     } else { const qa = $("#quickAdd"); if (qa) qa.classList.remove("hidden"); }
     const dataItem = ["datahub", "▥ Dữ liệu"];
     if (isAdmin() || current().role === "teacher") items.push(dataItem);
+    if (isAdmin() || current().role === "teacher") items.push(["discipline", "✎ Điểm nề nếp"]);
     items.push(["settings", "⚙ Cài đặt"]);
     $("#nav").innerHTML = items.map(([p, l]) => `<button data-page="${p}">${l}</button>`).join("");
     if (!isAdmin() && current().role === "student") { // cán bộ lớp (học sinh) cũng có trang Dữ liệu
       const meId = current().id;
       A.sb.from("class_officer_roles").select("id,classes(name)").eq("user_id", meId).is("ended_at", null).in("role", ["class_president", "academic_vp"])
-        .then((r) => { if (r.data && r.data.length) { myOfficer = [...new Set(r.data.map((x) => x.classes && x.classes.name).filter(Boolean))]; const sn = document.querySelector(".side-note"); if (sn) sn.textContent = "Tài khoản: " + current().name + " · " + myRoleText(world.profile || current()); } if (r.data && r.data.length && !$("#nav [data-page=datahub]")) { const st = $("#nav [data-page=settings]"); const b = document.createElement("button"); b.dataset.page = "datahub"; b.textContent = dataItem[1]; st.before(b); b.classList.toggle("active", page === "datahub"); } }, () => {});
+        .then((r) => { if (r.data && r.data.length) { myOfficer = [...new Set(r.data.map((x) => x.classes && x.classes.name).filter(Boolean))]; const sn = document.querySelector(".side-note"); if (sn) sn.textContent = "Tài khoản: " + current().name + " · " + myRoleText(world.profile || current()); } if (r.data && r.data.length && !$("#nav [data-page=datahub]")) { const st = $("#nav [data-page=settings]"); const b = document.createElement("button"); b.dataset.page = "datahub"; b.textContent = dataItem[1]; st.before(b); b.classList.toggle("active", page === "datahub"); }
+          if (r.data && r.data.length && !$("#nav [data-page=discipline]")) { const st2 = $("#nav [data-page=settings]"); const b2 = document.createElement("button"); b2.dataset.page = "discipline"; b2.textContent = "✎ Điểm nề nếp"; st2.before(b2); b2.classList.toggle("active", page === "discipline"); } }, () => {});
     }
   }
   /* Giao diện ngoại tuyến + tiện ích trạng thái (Loading / Empty / Error / Unauthorized / Saving) */
