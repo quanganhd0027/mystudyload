@@ -1369,6 +1369,11 @@
     $$("[data-close]").forEach((b) => (b.onclick = closeModal));
   }
   function closeModal() {
+    // đóng cửa sổ bấm giờ = tạm dừng đồng hồ (không để đồng hồ chạy ngầm)
+    if ($("#timerSeconds") && timer.status === "running") {
+      pauseTimer(false);
+      toast("Đã tạm dừng đồng hồ. Bấm \"Bắt đầu học\" để học tiếp.");
+    }
     $("#modalRoot").innerHTML = "";
   }
   function taskForm(t = {}, ownerId = current().id) {
