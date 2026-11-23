@@ -95,7 +95,7 @@ TABS.overview = (el, c) => {
 const CODE_ST = { ok: ['Sẵn sàng thêm', 'green'], added: ['Đã thêm', 'green'], in_class: ['Đã ở trong lớp', ''], not_found: ['Không tìm thấy mã', 'red'], not_student: ['Không phải tài khoản học sinh', 'red'], banned: ['Tài khoản bị khóa', 'red'], duplicate: ['Mã trùng nhiều tài khoản', 'red'] };
 const parseCodes = (t) => [...new Set(String(t || '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean))];
 function addByCode(c) {
-  SL.modal('Thêm học sinh vào lớp', `<label>Tìm học sinh theo mã, số điện thoại hoặc tên (gõ gần đúng cũng được)</label><input id="sq" type="search" autocomplete="off" placeholder="VD: 315 · 0912… · Nguyễn Văn" style="width:100%"><div id="sres" style="margin-top:10px;max-height:340px;overflow:auto"></div><div class="footer-note">Gõ ít nhất 2 ký tự. Bấm "Thêm" để cho học sinh vào lớp ngay, không cần nhập lại.</div>`, 'Đóng');
+  SL.modal('Thêm học sinh vào lớp', `<label>Tìm học sinh theo mã, số điện thoại hoặc tên (gõ gần đúng cũng được)</label><input id="sq" type="text" name="sl_find_student" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" placeholder="VD: 315 · 0912… · Nguyễn Văn" style="width:100%"><div id="sres" style="margin-top:10px;max-height:340px;overflow:auto"></div><div class="footer-note">Gõ ít nhất 2 ký tự. Bấm "Thêm" để cho học sinh vào lớp ngay, không cần nhập lại.</div>`, 'Đóng');
   const q = $('#sq'), res = $('#sres'); $('#modalSubmit').onclick = () => SL.closeModal(); q.focus();
   let t, seq = 0;
   const draw = (rows) => {
