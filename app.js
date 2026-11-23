@@ -965,7 +965,7 @@
               return `<div class="wk-cell ${k === today ? "today" : ""} ${past ? "past" : ""}"><div class="wk-head"><b>${names[i]}</b><span>${d.getDate()}/${d.getMonth() + 1}</span></div><div class="wk-plot"><div class="wk-stack">${items.length ? "" : '<i class="wk-seg ghost" title="Không có việc"></i>'}${items
                 .map(
                   (x) =>
-                    { let exp = x.t.status !== "done" && new Date(x.t.dueAt) < now();
+                    { let exp = new Date(x.t.dueAt) < now();
                     return `<i class="wk-seg ${x.done ? "done" : ""} ${exp ? "exp" : ""}" style="height:${(x.m / max) * 100}%;background:${subjColor(x.t.subject)}" data-action="detail" data-id="${x.t.id}" title="${esc(x.t.subject || "")} — ${esc(x.t.title)}: ${fmtMin(x.m)}${x.done ? " (đã học)" : ""}${exp ? " · đã hết hạn nộp" : ""}">${exp ? "Hết hạn" : ""}</i>`; },
                 )
                 .join("")}</div></div><div class="wk-total">${tot ? fmtMin(tot) : "—"}</div>${tot && !isTeacher() ? `<button class="small secondary wk-more" data-action="cal-day" data-day="${k}">Chi tiết</button>` : ""}</div>`;
@@ -1020,7 +1020,7 @@
     state.tasks.filter((t) => t.ownerId === u.id).forEach((t) =>
       (t.sessions || []).forEach((x) => {
         let m = Number(x.minutes) || 0;
-        if (m > 0 && localDay(x.startAt) === k) out.push({ t, m, done: !!x.completed, at: x.startAt });
+        if (m > 0 && localDay(x.startAt) === k) out.push({ t, m, done: !!x.completed || t.status === "done", at: x.startAt });
       }),
     );
     return out;
