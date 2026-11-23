@@ -265,3 +265,4 @@ html[data-theme=dark] .save-chip{background:#232b40;color:var(--muted)}
 html[data-theme=dark] .table-wrap th{background:#131928}
 html[data-theme=dark] .wk-cell.past{opacity:.55}
 html[data-theme=dark] .wk-seg.ghost{background:#232b40}
+.wk-seg.exp{min-height:18px;display:flex;align-items:center;justify-content:center;color:#fff;font:700 10px/1 system-ui,sans-serif;font-style:normal;white-space:nowrap;overflow:hidden;opacity:1;background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.18) 0 4px,transparent 4px 8px)}
