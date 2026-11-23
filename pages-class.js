@@ -94,7 +94,7 @@ TABS.overview = (el, c) => {
 /* ---------- Thành viên (giáo viên chủ nhiệm thêm bằng mã học sinh) ---------- */
 const CODE_ST = { ok: ['Sẵn sàng thêm', 'green'], added: ['Đã thêm', 'green'], in_class: ['Đã ở trong lớp', ''], not_found: ['Không tìm thấy mã', 'red'], not_student: ['Không phải tài khoản học sinh', 'red'], banned: ['Tài khoản bị khóa', 'red'], duplicate: ['Mã trùng nhiều tài khoản', 'red'] };
 const parseCodes = (t) => [...new Set(String(t || '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean))];
-function addByCode(c) {
+function addByCode(c, preset) {
   SL.modal('Thêm học sinh vào lớp', `<label>Tìm học sinh theo mã, số điện thoại hoặc tên (gõ gần đúng cũng được)</label><input id="sq" type="text" name="sl_find_student" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" placeholder="VD: 315 · 0912… · Nguyễn Văn" style="width:100%"><div id="sres" style="margin-top:10px;max-height:340px;overflow:auto"></div><div class="footer-note">Gõ ít nhất 2 ký tự. Bấm "Thêm" để cho học sinh vào lớp ngay, không cần nhập lại.</div>`, 'Đóng');
   const q = $('#sq'), res = $('#sres'); $('#modalSubmit').onclick = () => SL.closeModal(); q.focus();
   let t, seq = 0;
@@ -109,17 +109,19 @@ function addByCode(c) {
   let added = false;
   q.oninput = () => { clearTimeout(t); const v = q.value.trim(); if (v.length < 2) { res.innerHTML = ''; return; }
     t = setTimeout(async () => { const my = ++seq; try { const rows = await A.rpc('teacher_search_students', { p_class_id: c.cls.id, p_q: v }); if (my === seq) draw(rows); } catch (e) { res.innerHTML = `<div class="notice red">${esc(A.toApiError(e).message)}</div>`; } }, 300); };
+  if (preset && preset.length >= 2) { q.value = preset; q.dispatchEvent(new Event('input')); }
   const obs = new MutationObserver(() => { if (!document.getElementById('sq')) { obs.disconnect(); if (added) SL.reload(); } });
   obs.observe(document.getElementById('modalRoot'), { childList: true, subtree: true });
 }
 TABS.members = (el, c) => {
   const P = c.perms;
   el.innerHTML = `<div class="toolbar"><input id="mq" placeholder="Tìm học sinh…">${P.manageMembers ? '<button id="madd">+ Thêm học sinh</button>' : ''}</div><div id="mList"></div>`;
-  $('#madd')?.addEventListener('click', () => addByCode(c));
+  $('#madd')?.addEventListener('click', () => addByCode(c, $('#mq').value.trim()));
   const draw = () => { const s = $('#mq').value.toLowerCase(), rows = c.members.filter((m) => ((c.names[m.student_id] || '') + ' ' + (c.codes[m.student_id] || '')).toLowerCase().includes(s));
     $('#mList').innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>Họ tên</th><th>Mã HS</th><th>Chức vụ</th><th>Tổ</th>${P.manageMembers ? '<th></th>' : ''}</tr></thead><tbody>${rows.map((m) => {
       const o = c.officers.filter((x) => x.user_id === m.student_id).map((x) => ROLE[x.role]).join(', '), t = c.tmembers.filter((x) => x.student_id === m.student_id).map((x) => c.teams.find((tt) => tt.id === x.team_id)?.name).filter(Boolean).join(', ');
-      return `<tr><td><span class="row" style="gap:8px;flex-wrap:nowrap">${SL.av(m.student_id, c.names[m.student_id], o ? 'officer' : 'student', 28)}${nm(c, m.student_id)}</span></td><td>${esc(c.codes[m.student_id] || '—')}</td><td>${esc(o) || '—'}</td><td>${esc(t) || '—'}</td>${P.manageMembers ? `<td><button class="small danger" data-rmm="${m.student_id}">Xóa khỏi lớp</button></td>` : ''}</tr>`; }).join('')}</tbody></table></div>` : ui.empty(c.members.length ? 'Không có học sinh phù hợp.' : 'Lớp chưa có học sinh. Hãy bấm "Thêm học sinh" và tìm theo mã hoặc số điện thoại.');
+      return `<tr><td><span class="row" style="gap:8px;flex-wrap:nowrap">${SL.av(m.student_id, c.names[m.student_id], o ? 'officer' : 'student', 28)}${nm(c, m.student_id)}</span></td><td>${esc(c.codes[m.student_id] || '—')}</td><td>${esc(o) || '—'}</td><td>${esc(t) || '—'}</td>${P.manageMembers ? `<td><button class="small danger" data-rmm="${m.student_id}">Xóa khỏi lớp</button></td>` : ''}</tr>`; }).join('')}</tbody></table></div>` : ui.empty(c.members.length ? 'Không có học sinh phù hợp trong lớp.' : 'Lớp chưa có học sinh. Hãy bấm "Thêm học sinh" và tìm theo mã hoặc số điện thoại.') + (P.manageMembers && s.trim().length >= 2 ? `<div style="text-align:center;margin-top:8px"><button id="mfind">Tìm “${esc($('#mq').value.trim())}” trong toàn hệ thống để thêm vào lớp</button></div>` : '');
+    $('#mfind')?.addEventListener('click', () => addByCode(c, $('#mq').value.trim()));
     $('#mList').querySelectorAll('[data-rmm]').forEach((b) => (b.onclick = async () => { if (!confirm('Xóa học sinh này khỏi lớp? Chức vụ cán bộ/tổ của bạn ấy trong lớp cũng sẽ bị gỡ.')) return; b.disabled = true;
       try { await A.rpc('teacher_remove_class_member', { p_class_id: c.cls.id, p_student_id: b.dataset.rmm }); SL.toast('Đã xóa khỏi lớp.'); await SL.reload(); } catch (e) { SL.toast(A.toApiError(e).message); b.disabled = false; } })); };
   $('#mq').oninput = draw; draw();
