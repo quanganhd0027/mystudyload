@@ -268,4 +268,4 @@ html[data-theme=dark] .wk-seg.ghost{background:#232b40}
 .wk-seg.exp{min-height:18px;display:flex;align-items:center;justify-content:center;color:#fff;font:700 10px/1 system-ui,sans-serif;font-style:normal;white-space:nowrap;overflow:hidden;background-image:repeating-linear-gradient(135deg,rgba(0,0,0,.18) 0 4px,transparent 4px 8px)}
 .wk-seg.exp.done{opacity:.6}
 /* nhãn phiên bản ở góc, hiện trên mọi màn hình (kể cả đăng nhập) */
-#verTag{position:fixed;left:24px;top:8px;z-index:2147483000;font:700 13px/1 system-ui,sans-serif;color:var(--muted);opacity:.85;pointer-events:none;user-select:none}
+#verTag{position:fixed;left:24px;top:2px;padding:2px 7px;border-radius:6px;background:#262b55;z-index:2147483000;font:700 12px/1.2 system-ui,sans-serif;color:#fff;opacity:.95;pointer-events:none;user-select:none}
