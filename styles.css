@@ -223,3 +223,45 @@ th{font-size:12px;text-transform:none;letter-spacing:0}
 .day-total{display:flex;justify-content:space-between;font-size:18px;background:#efe3b8;color:#3a3220;border-radius:14px;padding:14px;margin-top:6px}
 .daily-pop{position:fixed;top:16px;right:16px;z-index:9998;background:#fff;border:2px solid #222;border-radius:18px;padding:14px 16px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:300px}
 .daily-pop p{margin:6px 0 10px}.daily-pop-act{display:flex;gap:8px;justify-content:flex-end}
+
+/* =====================================================================
+   v4 — Quy tắc giao diện (đọc DESIGN.md). Mọi màu lấy từ biến, hỗ trợ giao diện tối,
+   thành phần mới (xếp lịch ngày, hộp thông báo, nút nổi, xếp hạng) dùng cùng thang bo góc/khoảng cách.
+   ===================================================================== */
+:root{--brand-soft:color-mix(in srgb,var(--brand) 9%,var(--panel));--pill:999px;--pop:0 8px 24px rgba(16,23,42,.16);--fab:#2b3448}
+html[data-theme=dark]{--pop:0 8px 24px rgba(0,0,0,.5);--fab:#3a4560;--brand-soft:color-mix(in srgb,var(--brand) 22%,var(--panel))}
+/* chữ luôn theo --ink / --muted để đọc được ở cả hai giao diện */
+.item-title,.item-main,.card h2,.card h3,.section-head h2,.stat,td,.wk-head b,.wk-total,.cal-legend,.ld-col,.pager{color:var(--ink)}
+.wk-head span,.item-meta{color:var(--muted)}
+/* lịch tuần */
+.wk-cell{background:var(--panel);border-radius:var(--r2)}
+.wk-cell.today{border:2px solid var(--brand);background:var(--brand-soft)}
+.wk-more{font-size:12px;min-height:32px;margin-top:var(--s2)}
+.ld-row,.cal-legend{background:var(--panel);border-radius:var(--r2)}
+/* chi tiết ngày: khối màu theo môn */
+.day-subj{border-radius:var(--r2);padding:var(--s3) var(--s4);margin-bottom:var(--s2)}
+.day-subj-head{font-size:16px;margin-bottom:var(--s2)}
+.day-task{border-radius:var(--r1);padding:var(--s2) var(--s3);gap:var(--s3);margin-top:var(--s2)}
+.day-task .small{background:#fff;color:#141b2d;white-space:nowrap;min-width:72px}
+.day-total{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s3) var(--s4);font-size:16px;margin-top:var(--s2)}
+/* hộp thông báo nổi + nút nổi: cùng một kiểu "popover" */
+.daily-pop{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:var(--r2);box-shadow:var(--pop);padding:var(--s4);max-width:320px}
+.daily-pop b{font-size:14px}.daily-pop p{margin:var(--s2) 0 var(--s3);color:var(--ink)}
+@media(max-width:520px){.daily-pop{left:var(--s3);right:var(--s3);max-width:none}}
+.fab-box{position:fixed;right:var(--s4);bottom:var(--s4);z-index:9999;display:flex;gap:var(--s2);flex-wrap:wrap;justify-content:flex-end}
+.fab{border-radius:var(--pill);min-height:44px;padding:0 var(--s4);background:var(--fab);color:#fff;border:0;box-shadow:var(--pop);font-weight:600}
+.fab.back{background:var(--red);color:#fff;border:0}
+.fab:hover:not(:disabled){filter:brightness(1.12)}
+/* xếp hạng */
+.rk-me{background:var(--brand-soft)}.rk-me td{font-weight:650}
+.badge.blue{background:var(--brand-soft);color:var(--brand)}
+/* giao diện tối: các khối có màu cứng cũ */
+html[data-theme=dark] .notice.red{background:#3a1d1b;border-color:#6e2a25;color:#ffb4ab}
+html[data-theme=dark] .badge.green{background:#12392b;color:#7ee0b5}
+html[data-theme=dark] .badge.red{background:#3a1d1b;color:#ffb4ab}
+html[data-theme=dark] .badge.amber{background:#3d2e0e;color:#f5c26b}
+html[data-theme=dark] .badge{background:#232b40;color:var(--ink)}
+html[data-theme=dark] .save-chip{background:#232b40;color:var(--muted)}
+html[data-theme=dark] .table-wrap th{background:#131928}
+html[data-theme=dark] .wk-cell.past{opacity:.55}
+html[data-theme=dark] .wk-seg.ghost{background:#232b40}

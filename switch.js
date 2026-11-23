@@ -83,9 +83,8 @@ SL.pages.switchacct = {
 function openPicker() {
   if (document.getElementById('swPick')) return;
   const o = document.createElement('div');
-  o.id = 'swPick';
-  o.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px';
-  o.innerHTML = `<div class="card" style="background:#fff;width:min(820px,100%);max-height:86vh;overflow:auto"><div class="section-head"><h2>Đổi sang tài khoản khác</h2><button class="small secondary" data-close>Đóng</button></div>${pickerHtml()}</div>`;
+  o.id = 'swPick'; o.className = 'modal-backdrop'; o.style.zIndex = 10000;
+  o.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><div class="between"><h2>Đổi sang tài khoản khác</h2><button class="secondary small" data-close>Đóng</button></div>${pickerHtml()}</div>`;
   document.body.appendChild(o);
   o.querySelector('[data-close]').onclick = () => o.remove();
   o.addEventListener('click', (e) => { if (e.target === o) o.remove(); });
@@ -98,10 +97,8 @@ function floatBtn() {
   if (!s) { if (old) old.remove(); return; }
   if (old) return;
   const box = document.createElement('div');
-  box.id = 'swBack';
-  box.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end';
-  const st = 'border:0;border-radius:999px;padding:12px 18px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.3);cursor:pointer;color:#fff;';
-  box.innerHTML = `<button type="button" data-other style="${st}background:#37474f">⇄ Đổi tài khoản khác</button><button type="button" data-back style="${st}background:#b71c1c">⇦ Về tài khoản admin</button>`;
+  box.id = 'swBack'; box.className = 'fab-box';
+  box.innerHTML = '<button type="button" class="fab" data-other>⇄ Đổi tài khoản khác</button><button type="button" class="fab back" data-back>⇦ Về tài khoản admin</button>';
   box.querySelector('[data-other]').onclick = openPicker;
   box.querySelector('[data-back]').onclick = (e) => { e.target.disabled = true; back(); };
   document.body.appendChild(box);
