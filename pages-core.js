@@ -16,7 +16,7 @@ SL.pages.profile = {
       <div class="row" style="margin-bottom:12px;gap:14px">${SL.av(p.id, p.display_name, p.role, 72)}<button type="button" class="secondary" id="avBtn">Đổi ảnh đại diện</button></div>
       <dl class="kv"><dt>Email</dt><dd>${esc(p.email)}</dd><dt>Tên tài khoản</dt><dd>${esc(p.username)}</dd><dt>Vai trò</dt><dd><span class="badge">${SL.myRoleText(p)}</span></dd><dt>Ngày tạo</dt><dd>${SL.fmtDate(p.created_at)}</dd></dl>
       <form id="profileForm" style="margin-top:14px"><label>Họ tên / tên hiển thị *</label><input name="display_name" required maxlength="60" value="${esc(p.display_name)}">
-      <label>Mã học sinh (đúng 5 chữ số)</label><input name="student_code" id="pfCode" maxlength="5" value="${esc(p.student_code || '')}">
+      <label>Mã học sinh (4-10 chữ số)</label><input name="student_code" id="pfCode" inputmode="numeric" maxlength="10" value="${esc(p.student_code || '')}">
       <label>Số điện thoại</label><input name="phone" id="pfPhone" maxlength="12" value="${esc(p.phone || '')}">
       <p class="footer-note" id="pfNote">Chỉ dùng <b>một</b> trong hai: mã học sinh hoặc số điện thoại.</p>
       <label>Lớp (khai báo)</label><input name="class_name" maxlength="40" value="${esc(p.class_name || '')}">
@@ -29,7 +29,7 @@ SL.pages.profile = {
     const refreshIdent = () => {
       const c = codeIn.value.trim(), ph = phoneIn.value.trim(), isAdm = p.role === 'admin';
       if (!legacyBoth) { phoneIn.disabled = !!c; codeIn.disabled = !!ph; }
-      const bad = (c && !/^[0-9]{5}$/.test(c)) || (ph && !A.auth.validPhone(ph)) || (c && ph) || (!c && !ph && !isAdm);
+      const bad = (c && !(/^[0-9]{4,10}$/.test(c) && !/^(0[0-9]{8,9}|84[0-9]{8})$/.test(c))) || (ph && !A.auth.validPhone(ph)) || (c && ph) || (!c && !ph && !isAdm);
       saveBtn.disabled = !!bad;
       $('#pfNote').innerHTML = legacyBoth && c && ph ? '<b>Tài khoản cũ đang có cả hai.</b> Hãy xóa một trong hai rồi lưu.' : !c && !ph && !isAdm ? '<b>Cần có mã học sinh hoặc số điện thoại.</b> Hãy nhập một trong hai.' : 'Chỉ dùng <b>một</b> trong hai: mã học sinh hoặc số điện thoại.';
     };
@@ -61,7 +61,7 @@ SL.pages.profile = {
 function reportDup(code) {
   const p = SL.profile();
   ui.form('Mã học sinh của bạn bị dùng?', `<form><p class="muted">Quản trị viên sẽ đối chiếu và xử lý. Điền thông tin của bạn:</p><label>Họ và tên *</label><input name="name" required maxlength="80" value="${esc(p.display_name || '')}">
-    <label>Lớp *</label><input name="cls" required maxlength="40" value="${esc(p.class_name || '')}"><label>Mã học sinh của bạn *</label><input name="code" required maxlength="5" inputmode="numeric" value="${esc(code || '')}">
+    <label>Lớp *</label><input name="cls" required maxlength="40" value="${esc(p.class_name || '')}"><label>Mã học sinh của bạn *</label><input name="code" required maxlength="10" inputmode="numeric" value="${esc(code || '')}">
     <label>Cách liên hệ (email hoặc SĐT, không bắt buộc)</label><input name="contact" maxlength="100"></form>`, 'Gửi yêu cầu',
     async (root) => { const f = root.querySelector('form'); if (!f.reportValidity()) return false; const v = Object.fromEntries(new FormData(f).entries());
       await A.rpc('report_student_code_conflict', { p_name: v.name.trim(), p_class: v.cls.trim(), p_code: v.code.trim(), p_contact: v.contact.trim() || null }); }, 'Đã gửi yêu cầu cho quản trị viên.');

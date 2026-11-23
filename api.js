@@ -48,8 +48,10 @@ async function all(make) { // lấy hết dữ liệu theo trang 1000 dòng
 const USER_RE = /^[a-z0-9_]{3,30}$/, EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/, UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = v => typeof v === 'string' && UUID_RE.test(v);
 /* Ô nhập mã học sinh / số điện thoại: không cho gõ ký tự sai thay vì để người dùng nhập sai rồi bị khóa.
-   mode: 'both' (mã 5 số hoặc SĐT), 'code' (chỉ mã 5 số), 'phone' (chỉ SĐT). onState(valid, kind) được gọi mỗi khi đổi. */
-const IDENT_MSG = 'Chỉ nhập số (5 số hoặc số điện thoại). VD: 30333, 0123456789';
+   mode: 'both' (mã 4-10 số hoặc SĐT), 'code' (chỉ mã), 'phone' (chỉ SĐT). onState(valid, kind) được gọi mỗi khi đổi. */
+const IDENT_MSG = 'Chỉ nhập số (mã học sinh 4-10 số hoặc số điện thoại). VD: 30333, 0123456789';
+const CODE_RE = /^[0-9]{4,10}$/, PHONE_LIKE = /^(0[0-9]{8,9}|84[0-9]{8})$/;
+const isCode = (v) => CODE_RE.test(v) && !PHONE_LIKE.test(v);
 const hasFhp = (v) => /f\s*h\s*p/i.test(String(v || ''));
 const hasLetter = (v) => /[A-Za-zÀ-ỹĐđ]/.test(String(v || ''));
 function identErrEl(input) {
@@ -61,14 +63,13 @@ function showIdentErr(input, on) { const e = identErrEl(input); e.textContent = 
 function bindIdentInput(input, mode, onState) {
   const PH = /^(\+?84|0)[0-9]{8,10}$/;
   const clean = () => {
-    if (input.dataset.textMode === '1') { showIdentErr(input, false); return; } // đăng nhập bằng tên tài khoản: cho nhập chữ
     showIdentErr(input, hasLetter(input.value)); // gõ chữ: chữ bị bỏ, hiện dòng đỏ "chỉ nhập số"
     let v = input.value;
     if (mode === 'phone' || (mode === 'both' && /^[+0]/.test(v))) v = v.replace(/[^0-9+]/g, '').replace(/(?!^)\+/g, '').slice(0, 12);
-    else v = v.replace(/[^0-9]/g, '').slice(0, 5);
+    else v = v.replace(/[^0-9]/g, '').slice(0, 10);
     if (v !== input.value) input.value = v;
-    const kind = !v ? 'empty' : PH.test(v) && mode !== 'code' ? 'phone' : /^[0-9]{5}$/.test(v) && mode !== 'phone' ? 'code' : 'partial';
-    input.setCustomValidity(kind === 'partial' ? (mode === 'phone' ? 'Số điện thoại chưa hợp lệ' : 'Mã học sinh phải đủ 5 chữ số') : '');
+    const kind = !v ? 'empty' : PH.test(v) && mode !== 'code' ? 'phone' : isCode(v) && mode !== 'phone' ? 'code' : 'partial';
+    input.setCustomValidity(kind === 'partial' ? (mode === 'phone' ? 'Số điện thoại chưa hợp lệ' : 'Mã học sinh phải từ 4 đến 10 chữ số') : '');
     if (onState) onState(kind === 'code' || kind === 'phone', kind, v);
   };
   input.setAttribute('inputmode', mode === 'code' ? 'numeric' : 'tel'); input.setAttribute('autocomplete', 'off');
@@ -86,7 +87,7 @@ const auth = {
     const e = {}, id = auth.parseIdent(f.ident);
     if (!(f.displayName || '').trim()) e.displayName = 'Họ tên không được để trống.';
     if (!id.value) e.ident = 'Hãy nhập mã học sinh hoặc số điện thoại.';
-    else if (id.kind === 'code' && !/^[0-9]{5}$/.test(id.value)) e.ident = 'Mã học sinh phải gồm đúng 5 chữ số (hoặc nhập số điện thoại).';
+    else if (id.kind === 'code' && !isCode(id.value)) e.ident = 'Mã học sinh phải gồm từ 4 đến 10 chữ số (hoặc nhập số điện thoại).';
     if (f.password.length < 8) e.password = 'Mật khẩu tối thiểu 8 ký tự.';
     if (f.password !== f.confirm) e.confirm = 'Mật khẩu xác nhận không khớp.';
     return e;
@@ -112,40 +113,38 @@ const auth = {
   validateTeacher(f) {
     const e = {};
     if (!f.displayName.trim()) e.displayName = 'Họ tên không được để trống.';
-    if (!EMAIL_RE.test(f.email)) e.email = 'Email không hợp lệ.';
     if (!/^(\+?84|0)[0-9]{8,10}$/.test((f.phone || '').replace(/[\s.\-()]/g, ''))) e.phone = 'Số điện thoại không hợp lệ.';
     if (f.password.length < 8) e.password = 'Mật khẩu tối thiểu 8 ký tự.';
     return e;
   },
   async signUpTeacher(f) {
-    const local = (f.email.split('@')[0] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9_]/g, '_').slice(0, 22) || 'gv';
+    const phone = f.phone.replace(/[\s.\-()]/g, ''), id = auth.parseIdent(phone);
+    const local = 'gv_' + phone.replace(/[^0-9]/g, '').slice(-6);
     let username = null;
     for (let i = 0; i < 6 && !username; i++) {
-      const cand = (local.length < 3 ? local + '_gv' : local) + '_' + String(Math.floor(1000 + Math.random() * 9000));
+      const cand = local + '_' + String(Math.floor(1000 + Math.random() * 9000));
       if (await rpc('username_available', { p_username: cand })) username = cand;
     }
     if (!username) throw new ApiError('conflict', 'Không tạo được tên tài khoản, hãy thử lại.');
     let r;
     try {
-      r = await sb.auth.signUp({ email: f.email, password: f.password, options: {
-        emailRedirectTo: location.origin + location.pathname,
-        data: { username, display_name: f.displayName.trim(), teacher_signup: 'true', phone: f.phone.replace(/[\s.\-()]/g, '') } } });
+      r = await sb.auth.signUp({ email: id.email, password: f.password, options: {
+        data: { username, display_name: f.displayName.trim(), teacher_signup: 'true', phone } } });
     } catch (e) { throw toApiError(e); }
     if (r.error) {
-      if (/already|registered/i.test(r.error.message)) throw new ApiError('conflict', 'Email đã tồn tại.');
-      if (/Database error/i.test(r.error.message)) throw new ApiError('conflict', 'Không tạo được hồ sơ (email hoặc số điện thoại có thể không hợp lệ).');
+      if (/already|registered/i.test(r.error.message)) throw new ApiError('conflict', 'Số điện thoại này đã có tài khoản sử dụng.');
+      if (/Database error/i.test(r.error.message)) throw new ApiError('conflict', 'Không tạo được hồ sơ (số điện thoại có thể không hợp lệ hoặc đã được dùng).');
       throw toApiError(r.error);
     }
-    if (r.data.user && r.data.user.identities && r.data.user.identities.length === 0) throw new ApiError('conflict', 'Email đã tồn tại.');
+    if (r.data.user && r.data.user.identities && r.data.user.identities.length === 0) throw new ApiError('conflict', 'Số điện thoại này đã có tài khoản sử dụng.');
     return r.data.session ? 'signed_in' : 'confirm_email';
   },
   async signIn(identifier, password) {
     identifier = identifier.trim();
     let email = identifier.toLowerCase();
-    if (!identifier.includes('@')) {
-      email = await rpc('resolve_login', { p_username: identifier });
-      if (!email) throw new ApiError('auth', 'Mã học sinh/số điện thoại hoặc mật khẩu không đúng.');
-    }
+    if (!/^[0-9+\s.\-()]+$/.test(identifier)) throw new ApiError('auth', 'Chỉ đăng nhập bằng mã học sinh hoặc số điện thoại.');
+    email = await rpc('resolve_login', { p_username: identifier.replace(/[\s.\-()]/g, '') });
+    if (!email) throw new ApiError('auth', 'Mã học sinh/số điện thoại hoặc mật khẩu không đúng.');
     let r; try { r = await sb.auth.signInWithPassword({ email, password }); } catch (e) { throw toApiError(e); }
     if (r.error) {
       if (/not confirmed/i.test(r.error.message)) throw new ApiError('auth', 'Email chưa được xác nhận. Hãy mở thư xác nhận rồi đăng nhập lại.');
@@ -173,7 +172,7 @@ const auth = {
     }
     return auth._norm(p, s);
   },
-  /* Đổi mã học sinh HOẶC số điện thoại (máy chủ kiểm tra: đúng 5 chữ số, không trùng, không dùng cả hai) */
+  /* Đổi mã học sinh HOẶC số điện thoại (máy chủ kiểm tra: 4-10 chữ số, không trùng, không dùng cả hai) */
   async updateMyIdentity(code, phone) { await rpc('update_my_identity', { p_code: code || '', p_phone: phone || '' }); },
   async updateMyProfile(patch) {
     const s = await auth.session(), row = {};

@@ -123,11 +123,11 @@ function editAccount(d, reload) {
   const real = isInternal(d.login_email) ? '' : d.login_email;
   ui.form('Chỉnh sửa tài khoản', `<form><label>Họ và tên *</label><input name="n" required maxlength="60" value="${esc(d.display_name || '')}">
     <label>Email *</label><input name="e" type="email" required maxlength="120" value="${esc(d.login_email)}"><div class="muted" style="font-size:12px">${isInternal(d.login_email) ? 'Đây là email nội bộ do hệ thống tạo (đăng ký bằng mã HS hoặc SĐT). Đổi sang email thật cũng được; người dùng vẫn đăng nhập bằng mã HS / SĐT.' : 'Email dùng để đăng nhập.'}</div>
-    <label>Mã học sinh (5 chữ số)</label><input name="c" maxlength="5" inputmode="numeric" value="${esc(d.student_code || '')}">
+    <label>Mã học sinh (4-10 chữ số)</label><input name="c" maxlength="10" inputmode="numeric" value="${esc(d.student_code || '')}">
     <label>Số điện thoại</label><input name="p" inputmode="tel" maxlength="12" value="${esc(d.phone || '')}">
     <label>Lớp</label><input name="l" maxlength="40" value="${esc(d.class_name || '')}">
     <label>Tên tài khoản *</label><input name="u" required pattern="[a-z0-9_]{3,30}" value="${esc(d.username)}">
-    <div class="notice" style="margin-top:12px">Chỉ dùng <b>một</b> trong hai: mã học sinh (đúng 5 chữ số) hoặc số điện thoại. Xóa trống cả hai thì người đó phải nhập lại khi đăng nhập.</div></form>`, 'Lưu thay đổi',
+    <div class="notice" style="margin-top:12px">Chỉ dùng <b>một</b> trong hai: mã học sinh (4-10 chữ số) hoặc số điện thoại. Xóa trống cả hai thì người đó phải nhập lại khi đăng nhập.</div></form>`, 'Lưu thay đổi',
     async (root) => {
       const f = root.querySelector('form'); if (!f.reportValidity()) return false;
       const v = Object.fromEntries(new FormData(f).entries());
