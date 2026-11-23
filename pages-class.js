@@ -24,6 +24,8 @@ async function loadCtx(cls) {
     A.rpc('get_class_delegations', { p_class_id: id })]);
   const tmembers = teams.length ? await A.run(sb.from('class_team_members').select('*').in('team_id', teams.map((t) => t.id)).is('left_at', null)) : [];
   const names = {}, codes = {}; SL.state().users.forEach((u) => { names[u.id] = u.name; codes[u.id] = u.studentCode; });
+  // Mã học sinh của thành viên chỉ giáo viên/cán bộ lớp/admin được xem (máy chủ kiểm tra quyền); học sinh thường nhận rỗng
+  try { (await A.rpc('get_class_member_codes', { p_class_id: id }) || []).forEach((r) => { codes[r.user_id] = r.student_code; }); } catch (e) { /* không đủ quyền: giữ ô trống */ }
   const me = SL.current().id, now = Date.now();
   const members = cls.studentIds.map((s) => ({ student_id: s }));
   const activeDeleg = (delegs || []).filter((d) => !d.revoked_at && new Date(d.starts_at) <= now && now < new Date(d.ends_at));
