@@ -417,8 +417,10 @@
   function taskStatus(t) {
     if (t.status === "done") return "Hoàn thành";
     if (new Date(t.dueAt) < now()) return "Chưa hoàn thành – Quá hạn";
-    return t.status === "doing" ? "Đang làm" : "Chưa làm";
+    return isRunning(t) ? "Đang làm" : "Chưa làm";
   }
+  // "Đang làm/Đang học" chỉ khi đồng hồ của chính bài này đang chạy
+  function isRunning(t) { return !!t && timer.status === "running" && timer.taskId === t.id; }
   function activeTasks(owner = current().id) {
     return state.tasks.filter(
       (t) =>
@@ -833,8 +835,8 @@
         (t.title + " " + t.subject).toLowerCase().includes(q),
       );
       if (f === "done") arr = arr.filter((t) => t.status === "done");
-      if (f === "todo") arr = arr.filter((t) => t.status === "todo");
-      if (f === "doing") arr = arr.filter((t) => t.status === "doing");
+      if (f === "todo") arr = arr.filter((t) => t.status !== "done" && !isRunning(t));
+      if (f === "doing") arr = arr.filter((t) => isRunning(t));
       if (f === "overdue")
         arr = arr.filter(
           (t) => t.status !== "done" && new Date(t.dueAt) < now(),
@@ -1307,8 +1309,8 @@
   function deviationTable(ts) {
     return `<div class="table-wrap"><table><thead><tr><th>Nhiệm vụ</th><th>Môn / dạng</th><th>Dự kiến</th><th>Thực tế</th><th>Sai lệch</th></tr></thead><tbody>${ts.map((t) => {
       let done = t.status === "done", d = (+t.estimatedMinutes || 0) - (+t.actualMinutes || 0),
-        txt = !done ? (t.status === "doing" ? "Đang làm" : "Chưa làm") : d > 0 ? "Làm nhanh hơn " + d + " phút (+" + d + ")" : d < 0 ? "Làm chậm hơn " + -d + " phút (" + d + ")" : "Đúng dự kiến";
-      return `<tr><td>${esc(t.title)}</td><td>${esc(t.subject)} / ${esc(t.kind || "Khác")}</td><td>${t.estimatedMinutes} phút</td><td>${done || t.status === "doing" ? t.actualMinutes + " phút" : "—"}</td><td>${txt}</td></tr>`;
+        txt = !done ? (isRunning(t) ? "Đang làm" : (+t.actualMinutes || 0) > 0 ? "Chưa hoàn thành" : "Chưa làm") : d > 0 ? "Làm nhanh hơn " + d + " phút (+" + d + ")" : d < 0 ? "Làm chậm hơn " + -d + " phút (" + d + ")" : "Đúng dự kiến";
+      return `<tr><td>${esc(t.title)}</td><td>${esc(t.subject)} / ${esc(t.kind || "Khác")}</td><td>${t.estimatedMinutes} phút</td><td>${done || (+t.actualMinutes || 0) > 0 ? t.actualMinutes + " phút" : "—"}</td><td>${txt}</td></tr>`;
     }).join("")}</tbody></table></div>`;
   }
   function cycleHistory() {
