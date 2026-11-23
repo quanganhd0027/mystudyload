@@ -944,7 +944,7 @@
       } else
         (t.sessions || []).forEach((s) => {
           let m = Number(s.minutes) || 0;
-          if (m > 0) (byDay[localDay(s.startAt)] ||= []).push({ t, m, done: !!s.completed });
+          if (m > 0) (byDay[localDay(s.startAt)] ||= []).push({ t, m, done: !!s.completed || t.status === "done" });
         });
     });
     let all = weeks.flatMap((w) => w.days),
