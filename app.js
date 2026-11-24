@@ -1167,6 +1167,19 @@
       )
       .join("")}</tbody></table></div>`;
   }
+  /* Nhiệm vụ nằm trong báo cáo: học sinh = của mình; admin = tất cả; giáo viên = học sinh thuộc lớp mình được phân công */
+  function reportTasks(u) {
+    return isStudent()
+      ? state.tasks.filter((t) => t.ownerId === u.id)
+      : isAdmin()
+      ? state.tasks.slice()
+      : state.tasks.filter((t) => state.classes.filter((c) => c.teacherIds.includes(u.id) && c.studentIds.includes(t.ownerId)).length);
+  }
+  const cycleNums = (ts) => ({
+    taskCount: ts.length,
+    actualMinutes: ts.reduce((n, t) => n + (+t.actualMinutes || 0), 0),
+    deviationMinutes: ts.filter((t) => t.status === "done").reduce((n, t) => n + ((+t.estimatedMinutes || 0) - (+t.actualMinutes || 0)), 0),
+  });
   function renderReports() {
     let u = current();
     pageHead(
@@ -1180,23 +1193,13 @@
         `<div class="notice">Báo cáo giáo viên bộ môn chỉ bao gồm lớp, môn học và nhiệm vụ được phân công. Không hiển thị báo cáo thói quen liên môn.</div><div class="grid"><div class="card span-6"><h2>Thời gian thực tế theo nhiệm vụ</h2>${teacherReport(ts)}</div><div class="card span-6"><h2>Gợi ý thời lượng</h2>${teacherSuggestions(ts)}</div><div class="card span-12"><h2>Báo cáo lớp</h2>${classProgress(state.classes.filter((c) => isAdmin() || c.teacherIds.includes(u.id)))}</div></div>`;
       return;
     }
-    let ts = isStudent()
-      ? state.tasks.filter((t) => t.ownerId === u.id)
-      : isAdmin()
-      ? state.tasks.slice()
-      : state.tasks.filter(
-          (t) =>
-            state.classes.filter(
-              (c) =>
-                c.teacherIds.includes(u.id) && c.studentIds.includes(t.ownerId),
-            ).length,
-        );
+    let ts = reportTasks(u);
     let completed = ts.filter((t) => t.status === "done"),
       actual = ts.reduce((n, t) => n + (+t.actualMinutes || 0), 0),
       estimated = ts.reduce((n, t) => n + (+t.estimatedMinutes || 0), 0),
       dev = completed.reduce((n, t) => n + ((+t.estimatedMinutes || 0) - (+t.actualMinutes || 0)), 0);
     $("#content").innerHTML =
-      `<div class="grid"><div class="card span-3"><div class="stat-label">Tổng thời gian thực tế</div><div class="stat">${Math.round((actual / 60) * 10) / 10}h</div></div><div class="card span-3"><div class="stat-label">Thời gian dự kiến</div><div class="stat">${Math.round((estimated / 60) * 10) / 10}h</div></div><div class="card span-3"><div class="stat-label">Sai lệch (bài đã hoàn thành)</div><div class="stat">${completed.length ? (dev > 0 ? "+" : "") + dev + " phút" : "—"}</div><div class="muted">${!completed.length ? "Chưa có bài hoàn thành" : dev > 0 ? "Học sinh làm nhanh hơn dự kiến " + dev + " phút" : dev < 0 ? "Học sinh làm chậm hơn dự kiến " + -dev + " phút" : "Đúng dự kiến"}</div></div><div class="card span-3"><div class="stat-label">Đã hoàn thành</div><div class="stat">${completed.length}/${ts.length}</div></div><div class="card span-7"><h2>Thời gian học theo ngày trong tuần</h2>${weekdayChart(ts)}</div><div class="card span-5"><h2>Phân tích thói quen</h2>${habitAdvice(ts)}</div><div class="card span-12"><div class="section-head"><h2>Lịch sử chu kỳ nửa tuần</h2><button class="secondary" data-action="close-cycle">Chốt chu kỳ hiện tại</button></div>${cycleHistory()}</div><div class="card span-12"><h2>Sai lệch theo nhiệm vụ</h2>${deviationTable(ts)}</div></div>`;
+      `<div class="grid"><div class="card span-3"><div class="stat-label">Tổng thời gian thực tế</div><div class="stat">${Math.round((actual / 60) * 10) / 10}h</div></div><div class="card span-3"><div class="stat-label">Thời gian dự kiến</div><div class="stat">${Math.round((estimated / 60) * 10) / 10}h</div></div><div class="card span-3"><div class="stat-label">Sai lệch (bài đã hoàn thành)</div><div class="stat">${completed.length ? (dev > 0 ? "+" : "") + dev + " phút" : "—"}</div><div class="muted">${!completed.length ? "Chưa có bài hoàn thành" : dev > 0 ? "Học sinh làm nhanh hơn dự kiến " + dev + " phút" : dev < 0 ? "Học sinh làm chậm hơn dự kiến " + -dev + " phút" : "Đúng dự kiến"}</div></div><div class="card span-3"><div class="stat-label">Đã hoàn thành</div><div class="stat">${completed.length}/${ts.length}</div></div><div class="card span-7"><h2>Thời gian học theo ngày trong tuần</h2>${weekdayChart(ts)}</div><div class="card span-5"><h2>Phân tích thói quen</h2>${habitAdvice(ts)}</div><div class="card span-12"><div class="section-head"><h2>Lịch sử chu kỳ nửa tuần</h2><button class="secondary" data-action="close-cycle">Chốt chu kỳ hiện tại</button></div>${cycleHistory(ts)}</div><div class="card span-12"><h2>Sai lệch theo nhiệm vụ</h2>${deviationTable(ts)}</div></div>`;
   }
   function teacherReport(ts) {
     return `<div class="stat">${ts.reduce((n, t) => n + (+t.actualMinutes || 0), 0)} phút</div><p class="muted">Tổng thời gian thực tế đã xác nhận trong phạm vi nhiệm vụ được phân công.</p>${deviationTable(ts)}`;
@@ -1266,13 +1269,18 @@
   }
   function weekdayChart(ts) {
     let a = Array(7).fill(0);
-    ts.forEach((t) =>
+    ts.forEach((t) => {
+      let rec = 0;
       (t.sessions || []).forEach((s) => {
         if (s.minutes > 0 && s.endAt) {
           a[new Date(s.startAt).getDay()] += s.minutes;
+          rec += s.minutes;
         }
-      }),
-    );
+      });
+      // thời gian thực tế chưa có phiên học ghi ngày: tính vào ngày hoàn thành bài
+      let rest = (+t.actualMinutes || 0) - rec, cd = rest > 0 && t.status === "done" ? completionDate(t) : null;
+      if (cd) a[cd.getDay()] += rest;
+    });
     let max = Math.max(1, ...a);
     return `<div class="chart">${a.map((n, i) => `<div class="chart-col"><div class="chart-val">${n}m</div><div class="chart-bar" style="height:${Math.max(2, (n / max) * 130)}px"></div><div class="chart-label">${["CN", "T2", "T3", "T4", "T5", "T6", "T7"][i]}</div></div>`).join("")}</div><div class="footer-note">Chỉ cộng phiên có ngày học ghi nhận; thời gian nhập thủ công không có ngày học được ghi vào ngày hoàn thành.</div>`;
   }
@@ -1318,18 +1326,22 @@
       return `<tr><td>${esc(t.title)}</td><td>${esc(t.subject)} / ${esc(t.kind || "Khác")}</td><td>${t.estimatedMinutes} phút</td><td>${done || (+t.actualMinutes || 0) > 0 ? t.actualMinutes + " phút" : "—"}</td><td>${txt}</td></tr>`;
     }).join("")}</tbody></table></div>`;
   }
-  function cycleHistory() {
-    let hist = state.cycleHistory || [];
-    return hist.length
+  function cycleHistory(ts) {
+    let hist = state.cycleHistory || [],
+      dv = (v) => (v > 0 ? "+" : "") + v,
+      line = (c) => `${c.taskCount} nhiệm vụ · ${c.actualMinutes} phút thực tế · sai lệch ${dv(c.deviationMinutes)} phút (bài đã hoàn thành)`,
+      live = cycleNums(ts || []),
+      liveRow = `<div class="item"><div><div class="item-title">Hiện tại · chưa chốt</div><div class="item-meta">${line(live)}</div></div><span class="badge amber">Đang tính</span></div>`;
+    return liveRow + (hist.length
       ? hist
           .slice()
           .reverse()
           .map(
             (c) =>
-              `<div class="item"><div><div class="item-title">${esc(c.label)}</div><div class="item-meta">${c.taskCount} nhiệm vụ · ${c.actualMinutes} phút thực tế · sai lệch ${c.deviationMinutes > 0 ? "+" : ""}${c.deviationMinutes} phút</div></div><span class="badge">Đã lưu</span></div>`,
+              `<div class="item"><div><div class="item-title">${esc(c.label)}</div><div class="item-meta">${line(c)}</div></div><span class="badge">Đã lưu</span></div>`,
           )
           .join("")
-      : '<div class="empty">Chưa có chu kỳ nào được chốt. Chu kỳ hiện hành tự bắt đầu khi có dữ liệu.</div>';
+      : '<div class="empty">Chưa có chu kỳ nào được chốt. Bấm "Chốt chu kỳ hiện tại" để lưu lại số liệu hiện tại.</div>');
   }
   function renderNotifications() {
     let u = current(),
@@ -2125,17 +2137,15 @@
     };
   }
   function closeCycle() {
-    let ts = state.tasks.filter((t) => t.ownerId === current().id),
-      actual = ts.reduce((n, t) => n + (+t.actualMinutes || 0), 0),
-      est = ts.reduce((n, t) => n + (+t.estimatedMinutes || 0), 0),
+    let n = cycleNums(reportTasks(current())),
       d = now(),
       label = `${d.toLocaleDateString("vi-VN")} · chu kỳ nửa tuần`;
     state.cycleHistory.push({
       id: uid("cy"),
       label,
-      taskCount: ts.length,
-      actualMinutes: actual,
-      deviationMinutes: actual - est,
+      taskCount: n.taskCount,
+      actualMinutes: n.actualMinutes,
+      deviationMinutes: n.deviationMinutes,
       closedAt: iso(d),
     });
     save();
