@@ -227,6 +227,25 @@
     window.SLPush?.sync();
   }
   /* Sau khi đăng nhập: (1) nếu mã HS bị gỡ thì bắt nhập lại; (2) báo "mã học sinh của bạn đã được lấy lại" */
+  /* Tài khoản tạo sẵn: bắt đặt mật khẩu mới ở lần đăng nhập đầu, không thể đóng cho tới khi đổi xong */
+  function pwGate(profile) {
+    const root = $("#modalRoot");
+    root.innerHTML = `<div class="modal-backdrop"><form class="modal" id="pwForm" role="dialog" aria-modal="true"><h2>Tạo mật khẩu mới</h2><p class="muted">Đây là lần đăng nhập đầu tiên. Hãy tạo mật khẩu của riêng bạn (ít nhất 8 ký tự) để tiếp tục.</p><label>Mật khẩu mới<input type="password" name="p1" autocomplete="new-password" minlength="8" required></label><label>Nhập lại mật khẩu mới<input type="password" name="p2" autocomplete="new-password" minlength="8" required></label><div class="notice red" id="pwErr" hidden></div><div class="actions"><button type="submit">Lưu mật khẩu</button></div></form></div>`;
+    const f = $("#pwForm"), err = (m) => { const e = $("#pwErr"); e.textContent = m; e.hidden = !m; };
+    f.onsubmit = async (ev) => {
+      ev.preventDefault(); const p1 = f.p1.value, p2 = f.p2.value;
+      if (p1.length < 8) return err("Mật khẩu tối thiểu 8 ký tự.");
+      if (p1 !== p2) return err("Hai mật khẩu chưa khớp.");
+      if (p1 === (profile.student_id || "")) return err("Mật khẩu mới không được trùng mã học sinh.");
+      f.querySelector("button").disabled = true; err("");
+      try {
+        const r = await A.sb.auth.updateUser({ password: p1 });
+        if (r.error) throw r.error;
+        await A.rpc("clear_must_change_password");
+        root.innerHTML = ""; showToast("Đã đổi mật khẩu. Lần sau hãy đăng nhập bằng mật khẩu mới.");
+      } catch (e2) { f.querySelector("button").disabled = false; err((e2 && e2.message) || "Không đổi được mật khẩu, thử lại."); }
+    };
+  }
   async function afterLoginChecks(profile) {
     try {
       if (profile.role === "admin") {
@@ -234,6 +253,7 @@
         if (n > 0) showToast(`Có ${n} yêu cầu "mã học sinh bị trùng" đang chờ bạn xử lý (Người dùng → Mã HS bị trùng).`);
         return;
       }
+      try { if (!localStorage.getItem("sl_admin_return") && (await A.rpc("my_must_change_password"))) return pwGate(profile); } catch (e) { /* chưa có chức năng này: bỏ qua */ }
       { const why = await A.rpc("my_code_prompt_reason"); if (why) return codeGate(profile, "", false, false, why); }
       if (profile.role === "student" && (await A.rpc("consume_code_recovery_notice"))) {
         showToast("Mã học sinh của bạn đã được lấy lại.");
