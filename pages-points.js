@@ -13,7 +13,7 @@ const sign = (n) => (n > 0 ? '+' + n : String(n));
 const monthLabel = (ym) => { const [y, m] = ym.split('-'); return 'tháng ' + +m + '/' + y; };
 
 /* ============================ Tab Xếp hạng ============================ */
-const R = { scope: 'class', classId: '', grade: '', month: thisMonth() };
+const R = { scope: 'class', classId: '', grade: '', month: thisMonth(), open: '' };
 
 SL.pages.ranking = {
   title: 'Xếp hạng', sub: 'Điểm rèn luyện nề nếp theo tháng — xếp hạng lớp và xếp hạng khối.',
@@ -26,26 +26,50 @@ SL.pages.ranking = {
     const boardHtml = (d, scope) => {
         const rows = d.rows || [], me = d.me, mine = rows.find((r) => r.id === me);
         const top = rows.length ? Math.max(...rows.map((r) => r.points), 100) : 100;
-        const table = rows.length ? `<div class="table-wrap"><table><thead><tr><th style="width:64px">Hạng</th><th>Học sinh</th><th>Lớp</th><th>Điểm</th><th>Xếp loại</th><th>Cộng / trừ</th></tr></thead><tbody>${rows.map((r) => {
+        const table = rows.length ? `<div class="table-wrap rk-compact"><table><thead><tr><th style="width:56px">Hạng</th><th>Học sinh</th>${scope === 'grade' ? '<th>Lớp</th>' : ''}<th>Điểm</th><th>Xếp loại</th><th>Cộng / trừ</th></tr></thead><tbody>${rows.map((r) => {
           const [lab, col] = rankOf(r.points);
-          return `<tr class="${r.id === me ? 'rk-me' : ''}"><td><b>${MEDAL[r.rank] || r.rank}</b></td><td>${SL.av ? SL.av(r.id, r.name, 'student', 26) : ''} ${esc(r.name || '(chưa đặt tên)')}${r.id === me ? ' <span class="badge">Bạn</span>' : ''}</td><td>${esc(r.class || '')}</td>
-            <td><b>${r.points}</b><div class="bar" style="width:90px;margin-top:4px"><i style="width:${Math.max(2, Math.round(r.points / top * 100))}%"></i></div></td><td><span class="badge ${col}">${lab}</span></td>
+          return `<tr class="${r.id === me ? 'rk-me' : ''}"><td><b>${MEDAL[r.rank] || r.rank}</b></td><td>${SL.av ? SL.av(r.id, r.name, 'student', 22) : ''} ${esc(r.name || '(chưa đặt tên)')}${r.id === me ? ' <span class="badge">Bạn</span>' : ''}</td>${scope === 'grade' ? `<td>${esc(r.class || '')}</td>` : ''}
+            <td><b>${r.points}</b><div class="bar" style="width:64px;margin-top:2px"><i style="width:${Math.max(2, Math.round(r.points / top * 100))}%"></i></div></td><td><span class="badge ${col}">${lab}</span></td>
             <td class="muted">${r.plus ? `<span style="color:var(--green)">+${r.plus} lần</span>` : ''}${r.plus && r.minus ? ' · ' : ''}${r.minus ? `<span style="color:var(--red)">−${r.minus} lần</span>` : ''}${!r.plus && !r.minus ? '—' : ''}</td></tr>`;
         }).join('')}</tbody></table></div>` : ui.empty('Chưa có học sinh nào trong phạm vi này.');
         const cls = (d.classes || []).length > 1 ? `<div class="card" style="margin-top:16px"><h2>Xếp hạng các lớp trong khối ${esc(R.grade)} (điểm trung bình)</h2><div class="table-wrap"><table><thead><tr><th style="width:64px">Hạng</th><th>Lớp</th><th>Điểm TB</th><th>Số học sinh</th></tr></thead><tbody>${d.classes.map((c) => `<tr><td><b>${MEDAL[c.rank] || c.rank}</b></td><td>${esc(c.name)}</td><td><b>${c.avg}</b></td><td>${c.students}</td></tr>`).join('')}</tbody></table></div></div>` : '';
         const head = mine ? `<div class="notice green" style="margin-bottom:14px">Bạn đang đứng hạng <b>${mine.rank}</b> ${scope === 'class' ? 'trong lớp' : 'trong khối'} với <b>${mine.points}</b> điểm (${monthLabel(R.month)}).</div>` : '';
-        return head + `<div class="card"><div class="section-head"><h2>${scope === 'class' ? 'Xếp hạng trong lớp' : 'Xếp hạng toàn khối ' + esc(R.grade)} · ${monthLabel(R.month)}</h2><span class="muted">${rows.length} học sinh</span></div>${table}
+        return `<div class="card"><div class="section-head"><h2>${scope === 'class' ? 'Xếp hạng trong lớp' : 'Xếp hạng toàn khối ' + esc(R.grade)} · ${monthLabel(R.month)}</h2><span class="muted">${rows.length} học sinh</span></div>${table}
           <p class="footer-note">Mỗi tháng mỗi học sinh bắt đầu với 100 điểm; điểm cộng/trừ được cộng dồn. Xếp loại: Tốt ≥ 90 · Khá 80–dưới 90 · Đạt 60–dưới 80 · Chưa đạt dưới 60. Hiện chỉ tính nhận xét của từng học sinh, chưa tính nhận xét cả lớp.</p></div>` + cls;
     };
+    const D = { class: null, grade: null };
+    const clsName = () => (classes.find((c) => c.id === R.classId) || {}).name || '';
+    const summary = (d, scope) => {
+      const rows = d.rows || [], me = d.me, mine = rows.find((r) => r.id === me);
+      if (!rows.length) return '<div class="muted">Chưa có học sinh nào trong phạm vi này.</div>';
+      const l1 = mine ? `Hạng của bạn: <b>${mine.rank}</b>/${rows.length} · <b>${mine.points}</b> điểm` : `${rows.length} học sinh · cao nhất <b>${rows[0].points}</b> điểm`;
+      const names = rows.slice(0, 3).map((r) => (MEDAL[r.rank] || r.rank + '.') + ' ' + esc(r.name || '')).join(' · ');
+      const l2 = scope === 'grade' && (d.classes || []).length > 1 ? `Lớp dẫn đầu: <b>${esc(d.classes[0].name)}</b> (TB ${d.classes[0].avg})` : names;
+      return `<div class="rk-line">${l1}</div><div class="rk-line muted">${l2}</div>`;
+    };
+    const cardHtml = (scope) => `<div class="card rk-card" id="rk-${scope}"><h3>${scope === 'grade' ? 'Xếp hạng khối ' + esc(R.grade) : 'Xếp hạng lớp ' + esc(clsName())}</h3><div class="rk-sum"><div class="skeleton" style="height:36px"></div></div><div class="rk-act"><button class="small ${R.open === scope ? '' : 'secondary'}" data-open="${scope}" disabled>${R.open === scope ? 'Ẩn' : 'Chi tiết'}</button></div></div>`;
+    const showDetail = () => {
+      const box = $('#rkDetail'); if (!box) return;
+      box.innerHTML = R.open && D[R.open] ? boardHtml(D[R.open], R.open) : '';
+      el.querySelectorAll('[data-open]').forEach((b) => { const on = R.open === b.dataset.open; b.textContent = on ? 'Ẩn' : 'Chi tiết'; b.classList.toggle('secondary', !on); });
+      if (R.open) box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+    const fill = (scope, d) => {
+      D[scope] = d; const c = $('#rk-' + scope); if (!c) return;
+      c.querySelector('.rk-sum').innerHTML = summary(d, scope);
+      const b = c.querySelector('[data-open]'); b.disabled = false;
+      b.onclick = () => { R.open = R.open === scope ? '' : scope; showDetail(); };
+      if (R.open === scope) showDetail();
+    };
     const draw = () => {
-      el.innerHTML = `<div class="toolbar">${classes.length ? `<select id="rkc" aria-label="Lớp">${classes.map((c) => `<option value="${c.id}" ${c.id === R.classId ? 'selected' : ''}>Lớp ${esc(c.name)}</option>`).join('')}</select>` : ''}${grades.length ? `<select id="rkg" aria-label="Khối">${grades.map((g) => `<option value="${g}" ${g === +R.grade ? 'selected' : ''}>Khối ${g}</option>`).join('')}</select>` : ''}
+      el.innerHTML = `<div class="toolbar">${grades.length ? `<select id="rkg" aria-label="Khối">${grades.map((g) => `<option value="${g}" ${g === +R.grade ? 'selected' : ''}>Khối ${g}</option>`).join('')}</select>` : ''}${classes.length ? `<select id="rkc" aria-label="Lớp">${classes.map((c) => `<option value="${c.id}" ${c.id === R.classId ? 'selected' : ''}>Lớp ${esc(c.name)}</option>`).join('')}</select>` : ''}
           <input type="month" id="rkm" value="${R.month}" max="${thisMonth()}" aria-label="Tháng"></div>
-        <div id="rkClass"></div><div id="rkGrade" style="margin-top:16px"></div><div id="rkMine"></div>`;
+        <div class="rk-cards">${grades.length ? cardHtml('grade') : ''}${classes.length ? cardHtml('class') : ''}</div><div id="rkDetail"></div><div id="rkMine"></div>`;
       $('#rkc') && ($('#rkc').onchange = (e) => { R.classId = e.target.value; draw(); });
       $('#rkg') && ($('#rkg').onchange = (e) => { R.grade = +e.target.value; draw(); });
       $('#rkm').onchange = (e) => { R.month = e.target.value || thisMonth(); draw(); };
-      if (classes.length) ui.load($('#rkClass'), () => A.rpc('get_ranking', { p_scope: 'class', p_class_id: R.classId, p_grade: null, p_month: R.month + '-01' }), (d) => { $('#rkClass').innerHTML = boardHtml(d, 'class'); });
-      if (grades.length) ui.load($('#rkGrade'), () => A.rpc('get_ranking', { p_scope: 'grade', p_class_id: null, p_grade: +R.grade, p_month: R.month + '-01' }), (d) => { $('#rkGrade').innerHTML = boardHtml(d, 'grade'); });
+      const get = (scope) => A.rpc('get_ranking', { p_scope: scope, p_class_id: scope === 'class' ? R.classId : null, p_grade: scope === 'grade' ? +R.grade : null, p_month: R.month + '-01' });
+      ['grade', 'class'].forEach((sc) => { if (sc === 'grade' ? grades.length : classes.length) get(sc).then((d) => fill(sc, d)).catch((e) => { const c = $('#rk-' + sc); if (c) c.querySelector('.rk-sum').innerHTML = `<div class="muted">${esc(A.toApiError(e).message)}</div>`; }); });
       if (SL.isStudent()) loadMine();
     };
     const loadMine = async () => {

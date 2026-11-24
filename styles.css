@@ -301,3 +301,14 @@ html:not([data-theme=dark]) .side-note{border-top:1px solid var(--line);color:va
 .hello-banner p{margin:0;color:rgba(255,255,255,.92);font-size:14px}
 @media(max-width:520px){.hello-banner{padding:var(--s4)}.hello-banner h2{font-size:18px}}
 #verTag{background:#9a3412}
+
+/* Xếp hạng gọn: hai thẻ tóm tắt cạnh nhau, bấm Chi tiết mới mở danh sách */
+.rk-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3);align-items:start}
+@media(max-width:700px){.rk-cards{grid-template-columns:1fr}}
+.rk-card{padding:var(--s3) var(--s4)}
+.rk-card h3{margin:0 0 var(--s2);font-size:16px}
+.rk-line{font-size:13px;line-height:1.5}
+.rk-act{display:flex;justify-content:flex-end;margin-top:var(--s2)}
+#rkDetail{margin-top:var(--s3)}
+.rk-compact td,.rk-compact th{padding:6px var(--s3)}
+.rk-compact .av{vertical-align:middle}
