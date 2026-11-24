@@ -250,13 +250,20 @@ SL.pages.adminclasses = {
     $('#cnew').onclick = () => classForm(null);
     const draw = () => {
       const all = SL.state().classes.filter((c) => norm(c.name).includes(norm(C.q))), data = all.slice(C.page * PAGE, C.page * PAGE + PAGE), nm = (id) => SL.state().users.find((u) => u.id === id)?.name || '';
-      $('#cList').innerHTML = data.length ? `<div class="table-wrap"><table><thead><tr><th>Lớp</th><th>Chủ nhiệm</th><th>Sĩ số</th><th>Thao tác</th></tr></thead><tbody>${data.map((c) => `<tr><td><b>${esc(c.name)}</b><div class="muted">${esc(c.academicYear || '')} ${esc(c.description || '')}</div></td><td>${c.homeroomId ? esc(nm(c.homeroomId)) : '<span class="muted">Chưa có</span>'}</td><td>${c.studentIds.length}</td><td class="actions"><button class="small secondary" data-open="${c.id}">Mở lớp</button> <button class="small secondary" data-edit="${c.id}">Sửa</button> <button class="small secondary" data-assign="${c.id}">Giáo viên</button> <button class="small secondary" data-mem="${c.id}">Học sinh</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Chưa có lớp nào. Bấm "Tạo lớp" để bắt đầu.');
+      $('#cList').innerHTML = data.length ? `<div class="table-wrap"><table><thead><tr><th>Lớp</th><th>Chủ nhiệm</th><th>Sĩ số</th><th>Thao tác</th></tr></thead><tbody>${data.map((c) => `<tr><td><b>${esc(c.name)}</b><div class="muted">${esc(c.academicYear || '')} ${esc(c.description || '')}</div></td><td>${c.homeroomId ? esc(nm(c.homeroomId)) : '<span class="muted">Chưa có</span>'}</td><td>${c.studentIds.length}</td><td class="actions"><button class="small secondary" data-open="${c.id}">Mở lớp</button> <button class="small secondary" data-edit="${c.id}">Sửa</button> <button class="small secondary" data-assign="${c.id}">Giáo viên</button> <button class="small secondary" data-mem="${c.id}">Học sinh</button> <button class="small danger" data-del="${c.id}">Xóa</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Chưa có lớp nào. Bấm "Tạo lớp" để bắt đầu.');
       pager($('#cPager'), C.page, all.length, PAGE, (p) => { C.page = p; draw(); });
       const find = (id) => SL.state().classes.find((x) => x.id === id);
       el.querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => { SL.selectedClass = b.dataset.open; SL.go('classmgmt'); }));
       el.querySelectorAll('[data-edit]').forEach((b) => (b.onclick = () => classForm(find(b.dataset.edit))));
       el.querySelectorAll('[data-assign]').forEach((b) => (b.onclick = () => assignTeachers(find(b.dataset.assign))));
       el.querySelectorAll('[data-mem]').forEach((b) => (b.onclick = () => classMembers(find(b.dataset.mem))));
+      el.querySelectorAll('[data-del]').forEach((b) => (b.onclick = async () => {
+        const c = find(b.dataset.del); if (!c) return;
+        if (!confirm('Xóa lớp "' + c.name + '"?\n\nSĩ số ' + c.studentIds.length + ' học sinh sẽ được đưa ra khỏi lớp (tài khoản học sinh vẫn giữ). Tổ, cán bộ lớp, thông báo, trực nhật và báo cáo tuần của lớp sẽ bị xóa. Không thể hoàn tác.')) return;
+        b.disabled = true;
+        try { await A.rpc('admin_delete_class', { p_class_id: c.id }); SL.toast('Đã xóa lớp ' + c.name + '.'); await SL.reload(); }
+        catch (e) { b.disabled = false; SL.toast(A.toApiError(e).message); }
+      }));
     };
     draw();
   }
