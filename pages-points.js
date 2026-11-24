@@ -16,26 +16,14 @@ const monthLabel = (ym) => { const [y, m] = ym.split('-'); return 'tháng ' + +m
 const R = { scope: 'class', classId: '', grade: '', month: thisMonth() };
 
 SL.pages.ranking = {
-  title: 'Xếp hạng', sub: 'Điểm rèn luyện nề nếp theo tháng — xếp hạng trong lớp và trong khối.',
+  title: 'Xếp hạng', sub: 'Điểm rèn luyện nề nếp theo tháng — xếp hạng lớp và xếp hạng khối.',
   render(el) {
     const classes = (SL.state().classes || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi', { numeric: true }));
     const grades = [...new Set(classes.map((c) => gradeOf(c.name)).filter((g) => g != null))].sort((a, b) => a - b);
     if (!classes.length && !grades.length) { el.innerHTML = ui.empty('Bạn chưa thuộc lớp nào nên chưa có bảng xếp hạng. Hãy nhờ giáo viên thêm bạn vào lớp bằng mã học sinh.'); return; }
     if (!classes.some((c) => c.id === R.classId)) R.classId = classes[0] ? classes[0].id : '';
     if (!grades.includes(+R.grade)) R.grade = grades[0] != null ? grades[0] : '';
-    if (R.scope === 'grade' && !grades.length) R.scope = 'class';
-    const draw = () => {
-      el.innerHTML = `<div class="pill-tabs"><button data-sc="class" class="${R.scope === 'class' ? 'active' : ''}">Theo lớp</button><button data-sc="grade" class="${R.scope === 'grade' ? 'active' : ''}" ${grades.length ? '' : 'disabled title="Tên lớp cần bắt đầu bằng số khối, ví dụ 10A1"'}>Theo khối</button></div>
-        <div class="toolbar">${R.scope === 'class'
-          ? `<select id="rkc">${classes.map((c) => `<option value="${c.id}" ${c.id === R.classId ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>`
-          : `<select id="rkg">${grades.map((g) => `<option value="${g}" ${g === +R.grade ? 'selected' : ''}>Khối ${g}</option>`).join('')}</select>`}
-          <input type="month" id="rkm" value="${R.month}" max="${thisMonth()}" aria-label="Tháng"></div>
-        <div id="rkBody"></div>`;
-      el.querySelectorAll('[data-sc]').forEach((b) => (b.onclick = () => { R.scope = b.dataset.sc; draw(); }));
-      $('#rkc') && ($('#rkc').onchange = (e) => { R.classId = e.target.value; draw(); });
-      $('#rkg') && ($('#rkg').onchange = (e) => { R.grade = +e.target.value; draw(); });
-      $('#rkm').onchange = (e) => { R.month = e.target.value || thisMonth(); draw(); };
-      ui.load($('#rkBody'), () => A.rpc('get_ranking', { p_scope: R.scope, p_class_id: R.scope === 'class' ? R.classId : null, p_grade: R.scope === 'grade' ? +R.grade : null, p_month: R.month + '-01' }), (d) => {
+    const boardHtml = (d, scope) => {
         const rows = d.rows || [], me = d.me, mine = rows.find((r) => r.id === me);
         const top = rows.length ? Math.max(...rows.map((r) => r.points), 100) : 100;
         const table = rows.length ? `<div class="table-wrap"><table><thead><tr><th style="width:64px">Hạng</th><th>Học sinh</th><th>Lớp</th><th>Điểm</th><th>Xếp loại</th><th>Cộng / trừ</th></tr></thead><tbody>${rows.map((r) => {
@@ -45,11 +33,20 @@ SL.pages.ranking = {
             <td class="muted">${r.plus ? `<span style="color:var(--green)">+${r.plus} lần</span>` : ''}${r.plus && r.minus ? ' · ' : ''}${r.minus ? `<span style="color:var(--red)">−${r.minus} lần</span>` : ''}${!r.plus && !r.minus ? '—' : ''}</td></tr>`;
         }).join('')}</tbody></table></div>` : ui.empty('Chưa có học sinh nào trong phạm vi này.');
         const cls = (d.classes || []).length > 1 ? `<div class="card" style="margin-top:16px"><h2>Xếp hạng các lớp trong khối ${esc(R.grade)} (điểm trung bình)</h2><div class="table-wrap"><table><thead><tr><th style="width:64px">Hạng</th><th>Lớp</th><th>Điểm TB</th><th>Số học sinh</th></tr></thead><tbody>${d.classes.map((c) => `<tr><td><b>${MEDAL[c.rank] || c.rank}</b></td><td>${esc(c.name)}</td><td><b>${c.avg}</b></td><td>${c.students}</td></tr>`).join('')}</tbody></table></div></div>` : '';
-        const head = mine ? `<div class="notice green" style="margin-bottom:14px">Bạn đang đứng hạng <b>${mine.rank}</b> với <b>${mine.points}</b> điểm (${monthLabel(R.month)}).</div>` : '';
-        $('#rkBody').innerHTML = head + `<div class="card"><div class="section-head"><h2>${R.scope === 'class' ? 'Xếp hạng trong lớp' : 'Xếp hạng toàn khối ' + esc(R.grade)} · ${monthLabel(R.month)}</h2><span class="muted">${rows.length} học sinh</span></div>${table}
-          <p class="footer-note">Mỗi tháng mỗi học sinh bắt đầu với 100 điểm; điểm cộng/trừ được cộng dồn. Xếp loại: Tốt ≥ 90 · Khá 80–dưới 90 · Đạt 60–dưới 80 · Chưa đạt dưới 60. Hiện chỉ tính nhận xét của từng học sinh, chưa tính nhận xét cả lớp.</p></div>` + cls + '<div id="rkMine"></div>';
-        if (SL.isStudent()) loadMine();
-      });
+        const head = mine ? `<div class="notice green" style="margin-bottom:14px">Bạn đang đứng hạng <b>${mine.rank}</b> ${scope === 'class' ? 'trong lớp' : 'trong khối'} với <b>${mine.points}</b> điểm (${monthLabel(R.month)}).</div>` : '';
+        return head + `<div class="card"><div class="section-head"><h2>${scope === 'class' ? 'Xếp hạng trong lớp' : 'Xếp hạng toàn khối ' + esc(R.grade)} · ${monthLabel(R.month)}</h2><span class="muted">${rows.length} học sinh</span></div>${table}
+          <p class="footer-note">Mỗi tháng mỗi học sinh bắt đầu với 100 điểm; điểm cộng/trừ được cộng dồn. Xếp loại: Tốt ≥ 90 · Khá 80–dưới 90 · Đạt 60–dưới 80 · Chưa đạt dưới 60. Hiện chỉ tính nhận xét của từng học sinh, chưa tính nhận xét cả lớp.</p></div>` + cls;
+    };
+    const draw = () => {
+      el.innerHTML = `<div class="toolbar">${classes.length ? `<select id="rkc" aria-label="Lớp">${classes.map((c) => `<option value="${c.id}" ${c.id === R.classId ? 'selected' : ''}>Lớp ${esc(c.name)}</option>`).join('')}</select>` : ''}${grades.length ? `<select id="rkg" aria-label="Khối">${grades.map((g) => `<option value="${g}" ${g === +R.grade ? 'selected' : ''}>Khối ${g}</option>`).join('')}</select>` : ''}
+          <input type="month" id="rkm" value="${R.month}" max="${thisMonth()}" aria-label="Tháng"></div>
+        <div id="rkClass"></div><div id="rkGrade" style="margin-top:16px"></div><div id="rkMine"></div>`;
+      $('#rkc') && ($('#rkc').onchange = (e) => { R.classId = e.target.value; draw(); });
+      $('#rkg') && ($('#rkg').onchange = (e) => { R.grade = +e.target.value; draw(); });
+      $('#rkm').onchange = (e) => { R.month = e.target.value || thisMonth(); draw(); };
+      if (classes.length) ui.load($('#rkClass'), () => A.rpc('get_ranking', { p_scope: 'class', p_class_id: R.classId, p_grade: null, p_month: R.month + '-01' }), (d) => { $('#rkClass').innerHTML = boardHtml(d, 'class'); });
+      if (grades.length) ui.load($('#rkGrade'), () => A.rpc('get_ranking', { p_scope: 'grade', p_class_id: null, p_grade: +R.grade, p_month: R.month + '-01' }), (d) => { $('#rkGrade').innerHTML = boardHtml(d, 'grade'); });
+      if (SL.isStudent()) loadMine();
     };
     const loadMine = async () => {
       let ev = []; try { ev = await A.rpc('my_point_events', { p_month: R.month + '-01' }); } catch (e) { return; }
