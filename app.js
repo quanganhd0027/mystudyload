@@ -1318,9 +1318,7 @@
   function modal(title, body, submitText = "Lưu") {
     $("#modalRoot").innerHTML =
       `<div class="modal-backdrop" id="backdrop"><div class="modal" role="dialog" aria-modal="true"><div class="between"><h2>${title}</h2><button class="secondary small" data-close>Đóng</button></div>${body}<div class="modal-footer"><button class="secondary" data-close>Hủy</button><button id="modalSubmit">${submitText}</button></div></div></div>`;
-    $("#backdrop").addEventListener("click", (e) => {
-      if (e.target.id === "backdrop") closeModal();
-    });
+    // không đóng khi bấm ra ngoài thẻ (tránh bấm nhầm); chỉ đóng bằng nút Đóng/Hủy
     $$("[data-close]").forEach((b) => (b.onclick = closeModal));
   }
   function closeModal() {
