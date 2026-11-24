@@ -1182,6 +1182,8 @@
     }
     let ts = isStudent()
       ? state.tasks.filter((t) => t.ownerId === u.id)
+      : isAdmin()
+      ? state.tasks.slice()
       : state.tasks.filter(
           (t) =>
             state.classes.filter(
