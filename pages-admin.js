@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const SL = window.SL, A = window.SLApi, { esc, ui, $ } = SL, { REQ_STATUS } = SL.util;
-const PAGE = 20;
+const PAGE = 50;
 const norm = (s) => String(s || '').toLowerCase();
 const pager = (el, page, total, size, go) => {
   const pages = Math.max(1, Math.ceil(total / size));
