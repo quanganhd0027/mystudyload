@@ -279,21 +279,21 @@ function classForm(c) {
 async function assignTeachers(c) {
   let teachers; try { teachers = (await listUsers('')).filter((u) => u.role === 'teacher' && !u.is_banned); } catch (e) { return SL.toast(A.toApiError(e).message); }
   const label = (t) => t.display_name || t.username;
-  const nm = (id) => { const t = teachers.find((x) => x.user_id === id); return t ? label(t) : (SL.state().users.find((u) => u.id === id)?.name || ''); };
-  const cur = () => SL.state().classes.find((x) => x.id === c.id) || c;
-  const draw = () => {
-    const k = cur(), box = $('#asgBody');
-    box.innerHTML = `<div class="notice ${k.homeroomId ? 'green' : ''}" style="margin-bottom:12px">Chủ nhiệm hiện tại: <b>${k.homeroomId ? esc(nm(k.homeroomId)) : 'chưa có'}</b></div>
-      ${teachers.length ? `<label>Chọn giáo viên chủ nhiệm</label><div class="row"><select id="hrSel"><option value="">— Chọn giáo viên —</option>${teachers.map((t) => `<option value="${t.user_id}" ${k.homeroomId === t.user_id ? 'selected' : ''}>${esc(label(t))}</option>`).join('')}</select><button class="small" id="hrSave">${k.homeroomId ? 'Đổi chủ nhiệm' : 'Đặt chủ nhiệm'}</button>${k.homeroomId ? '<button class="small danger" id="hrClear">Bỏ chủ nhiệm</button>' : ''}</div>`
-        : '<div class="notice">Chưa có tài khoản giáo viên. Hãy duyệt yêu cầu hoặc đổi vai trò ở mục "Người dùng".</div>'}<div id="asgErr" class="notice red hidden"></div>`;
-    const err = (e) => { const x = $('#asgErr'); x.textContent = A.toApiError(e).message; x.classList.remove('hidden'); };
-    const after = async (msg) => { await SL.reload(); SL.toast(msg); SL.modalRedraw?.(); draw(); };
-    $('#hrSave')?.addEventListener('click', async () => { const v = $('#hrSel').value; if (!v) return err(new Error('Hãy chọn một giáo viên.')); try { await A.rpc('admin_assign_homeroom_teacher', { p_class_id: c.id, p_teacher_id: v }); await after('Đã đặt giáo viên chủ nhiệm.'); } catch (e) { err(e); } });
-    $('#hrClear')?.addEventListener('click', async () => { if (!confirm('Bỏ giáo viên chủ nhiệm của lớp ' + c.name + '?')) return; try { await A.rpc('admin_clear_homeroom_teacher', { p_class_id: c.id }); await after('Đã bỏ chủ nhiệm.'); } catch (e) { err(e); } });
+  const k0 = SL.state().classes.find((x) => x.id === c.id) || c;
+  SL.modal(`Chủ nhiệm · lớp ${esc(c.name)}`, teachers.length
+    ? `<label>Giáo viên chủ nhiệm</label><select id="hrSel"><option value="">— Chưa có chủ nhiệm —</option>${teachers.map((t) => `<option value="${t.user_id}" ${k0.homeroomId === t.user_id ? 'selected' : ''}>${esc(label(t))}</option>`).join('')}</select><p class="muted">Chọn giáo viên rồi bấm "Xong" để lưu.</p><div id="asgErr" class="notice red hidden"></div>`
+    : '<div class="notice">Chưa có tài khoản giáo viên. Hãy duyệt yêu cầu hoặc đổi vai trò ở mục "Người dùng".</div>', 'Xong');
+  $('#modalSubmit').onclick = async () => {
+    const sel = $('#hrSel'); if (!sel) return SL.closeModal();
+    const v = sel.value, btn = $('#modalSubmit');
+    if (v === (k0.homeroomId || '')) return SL.closeModal();
+    btn.disabled = true; btn.textContent = 'Đang lưu…';
+    try {
+      if (v) await A.rpc('admin_assign_homeroom_teacher', { p_class_id: c.id, p_teacher_id: v });
+      else await A.rpc('admin_clear_homeroom_teacher', { p_class_id: c.id });
+      SL.closeModal(); await SL.reload(); SL.toast(v ? 'Đã đặt giáo viên chủ nhiệm.' : 'Đã bỏ chủ nhiệm.');
+    } catch (e) { btn.disabled = false; btn.textContent = 'Xong'; const x = $('#asgErr'); x.textContent = A.toApiError(e).message; x.classList.remove('hidden'); }
   };
-  SL.modal(`Chủ nhiệm · lớp ${esc(c.name)}`, '<div id="asgBody"></div>', 'Xong');
-  $('#modalSubmit').onclick = () => SL.closeModal();
-  draw();
 }
 async function classMembers(c) {
   let students; try { students = (await listUsers('')).filter((u) => u.role === 'student' && !u.is_banned); } catch (e) { return SL.toast(A.toApiError(e).message); }
