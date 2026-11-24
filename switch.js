@@ -17,10 +17,12 @@ async function adminClient() {
   localStorage.setItem(KEY, JSON.stringify({ ...s, access_token: r.data.session.access_token, refresh_token: r.data.session.refresh_token }));
   return c;
 }
+// quản trị viên và giáo viên lên đầu, học sinh sau; cùng nhóm thì theo tên
+const byRole = (rows) => { const rk = { admin: 0, teacher: 1 }; return rows.slice().sort((a, b) => (rk[a.role] ?? 2) - (rk[b.role] ?? 2) || String(a.display_name || a.username || '').localeCompare(String(b.display_name || b.username || ''), 'vi')); };
 async function searchAccounts(q, role) {
   const prev = read();
-  if (prev) { const c = await adminClient(); const r = await c.rpc('admin_search_accounts', { p_q: q, p_role: role, p_limit: 30, p_offset: 0 }); if (r.error) throw r.error; return r.data || []; }
-  return A.rpc('admin_search_accounts', { p_q: q, p_role: role, p_limit: 30, p_offset: 0 });
+  if (prev) { const c = await adminClient(); const r = await c.rpc('admin_search_accounts', { p_q: q, p_role: role, p_limit: 100, p_offset: 0 }); if (r.error) throw r.error; return byRole(r.data || []); }
+  return byRole(await A.rpc('admin_search_accounts', { p_q: q, p_role: role, p_limit: 100, p_offset: 0 }) || []);
 }
 
 async function switchTo(u) {
