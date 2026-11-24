@@ -333,16 +333,16 @@
   }
   function buildNav() {
     const items = [["dashboard", "◫ Tổng quan"], ["tasks", "☷ Nhiệm vụ"], ["calendar", "▦ Lịch cá nhân"], ["classes", "♧ Lớp học & dự án"],
-      ["classmgmt", "⚑ Quản lý lớp"], ["library", "▤ Thư viện"], ["reports", "◷ Báo cáo"], ["ranking", "★ Xếp hạng"], ["notifications", "✉ Thông báo"], ["profile", "☺ Hồ sơ"]];
+      ["classmgmt", "⚑ Quản lý lớp"], ["reports", "◷ Báo cáo"], ["ranking", "★ Xếp hạng"], ["notifications", "✉ Thông báo"], ["profile", "☺ Hồ sơ"]];
     if (isAdmin()) {
       // Quản trị viên không học: bỏ Nhiệm vụ, Lịch cá nhân, Lớp học & dự án, Thư viện (và Quản lý lớp của giáo viên – đã có "Lớp học (Admin)")
-      const hide = new Set(["tasks", "calendar", "classes", "classmgmt", "library"]);
+      const hide = new Set(["tasks", "calendar", "classes", "classmgmt"]);
       items.splice(0, items.length, ...items.filter(([p]) => !hide.has(p)));
       items.splice(1, 0, ["users", "☰ Người dùng"], ["adminclasses", "⌂ Lớp học (Admin)"], ["subjects", "✎ Môn học"], ["audit", "⛨ Nhật ký kiểm toán"], ["switchacct", "⇄ Đổi tài khoản"]);
       const qa = $("#quickAdd"); if (qa) qa.classList.add("hidden");
     } else { const qa = $("#quickAdd"); if (qa) qa.classList.remove("hidden"); }
     // Rút gọn menu: Thư viện chỉ là bản demo → ẩn với mọi vai trò (mã trang vẫn còn)
-    { const hideAll = new Set(["library"]);
+    { const hideAll = new Set();
       if (!isAdmin() && current().role === "student") {
         // học sinh: ẩn Quản lý lớp (chỉ cán bộ lớp), Lớp học & dự án (chỉ khi thuộc dự án nhóm), Báo cáo
         const u0 = current(), inProj = state.projects.some((p) => (p.memberIds || []).includes(u0.id) || (p.groups || []).some((g) => (g.memberIds || []).includes(u0.id)));
@@ -634,7 +634,6 @@
     if (page !== "calendar") calDay = null;
     if (page === "calendar") renderCalendar();
     if (page === "classes") renderClasses();
-    if (page === "library") renderLibrary();
     if (page === "reports") renderReports();
     if (page === "notifications") renderNotifications();
     if (page === "settings") renderSettings();
@@ -670,18 +669,16 @@
  <div class="card span-3"><div class="stat-label">Hạn nộp trong 24 giờ</div><div class="stat">${dueSoon.length}</div><div class="muted">Cần ưu tiên kiểm tra</div></div>
  <div class="card span-3"><div class="stat-label">Có thể trễ hạn</div><div class="stat">${risks.length}</div><div class="muted">Dựa trên sức chứa trước hạn</div></div>
  <div class="card span-7">${isTeacher() ? `<div class="section-head"><h2>Nhiệm vụ cần chú ý</h2><button class="secondary small" data-goto="tasks">Xem tất cả</button></div>${risks.length ? '<div class="notice red">Có nhiệm vụ có nguy cơ trễ hạn.</div>' + risks.map(taskCard).join("") : '<div class="notice green">Chưa phát hiện nhiệm vụ thiếu sức chứa trước hạn trong dữ liệu hiện tại.</div>'}${tasks.filter((t) => !risks.includes(t)).slice(0, 3).map(taskCard).join("") || ""}` : todayTasksHtml(u, risks)}</div>
- <div class="card ${isTeacher() ? "span-12" : "span-5"}"><h2>${isTeacher() ? "Tiến độ từng học sinh" : "Khối lượng học trong 7 ngày tới"}</h2>${isTeacher() ? classProgress(state.classes.filter((c) => isAdmin() || c.teacherIds.includes(u.id))) : loadChart(u.id, 7)}<div class="footer-note">${isTeacher() ? "Số liệu dựa trên các nhiệm vụ thuộc lớp bạn phụ trách." : "Mức tải được tính từ thời gian đã xếp lịch so với thời gian có thể học. Thời gian bận và thời gian đã qua không được tính."}</div></div>
- <div class="card span-6"><h2>${isTeacher() ? "Nhiệm vụ sắp đến hạn" : "Lịch học sắp tới"}</h2>${
-   isTeacher()
-     ? tasks
+ <div class="card ${isTeacher() ? "span-12" : "span-5"}"><h2>${isTeacher() ? "Tiến độ từng học sinh" : "Khối lượng học trong 7 ngày tới"}</h2>${isTeacher() ? classProgress(state.classes.filter((c) => isAdmin() || c.teacherIds.includes(u.id))) : loadChart(u.id, 7)}<div class="footer-note">${isTeacher() ? "Số liệu dựa trên các nhiệm vụ thuộc lớp bạn phụ trách." : "Số phút học đã xếp lịch cho từng ngày. Chiều cao cột so với thời gian rảnh trong ngày; cột đỏ là vượt thời gian rảnh."}</div></div>
+ ${isTeacher() ? `<div class="card span-6"><h2>Nhiệm vụ sắp đến hạn</h2>${
+   tasks
          .slice()
          .sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt))
          .slice(0, 5)
          .map(taskCard)
          .join("") || '<div class="empty">Chưa có nhiệm vụ cần theo dõi.</div>'
-     : upcomingSessions(u.id)
- }</div>
- <div class="card span-6"><h2>Thông báo gần đây</h2>${notificationList(
+ }</div>` : ""}
+ <div class="card ${isTeacher() ? "span-6" : "span-12"}"><h2>Thông báo gần đây</h2>${notificationList(
    state.notifications
      .filter((n) => n.userId === u.id)
      .slice(-4)
@@ -739,26 +736,7 @@
         pct = cap ? Math.min(150, (load / cap) * 100) : 0;
       arr.push({ d, cap, load, pct });
     }
-    return `<div class="chart">${arr.map((x) => `<div class="chart-col"><div class="chart-val">${x.cap ? Math.round(x.pct) + "%" : "—"}</div><div class="chart-bar ${x.pct > 100 ? "over" : ""}" style="height:${Math.max(2, (x.pct / 150) * 135)}px" title="Đã phân bổ ${x.load} phút / sức chứa ${x.cap} phút"></div><div class="chart-label">${x.d.toLocaleDateString("vi-VN", { weekday: "short", day: "numeric" })}</div></div>`).join("")}</div>`;
-  }
-  function upcomingSessions(owner) {
-    let arr = state.tasks
-      .filter((t) => t.ownerId === owner && t.status !== "done")
-      .flatMap((t) =>
-        (t.sessions || [])
-          .filter((s) => !s.completed && new Date(s.endAt || s.startAt) > now())
-          .map((s) => ({ t, s })),
-      )
-      .sort((a, b) => new Date(a.s.startAt) - new Date(b.s.startAt))
-      .slice(0, 5);
-    return arr.length
-      ? arr
-          .map(
-            ({ t, s }) =>
-              `<div class="item"><div><div class="item-title">${esc(t.title)}</div><div class="item-meta">${fmtDate(s.startAt)} · ${s.minutes} phút</div></div><button class="small secondary" data-action="detail" data-id="${t.id}">Chi tiết</button></div>`,
-          )
-          .join("")
-      : '<div class="empty">Chưa có buổi học nào được xếp lịch sắp tới.</div>';
+    return `<div class="chart">${arr.map((x) => `<div class="chart-col"><div class="chart-val">${x.load >= 60 ? Math.floor(x.load / 60) + "h" + (x.load % 60 ? String(Math.round(x.load % 60)).padStart(2, "0") : "") : Math.round(x.load) + "p"}</div><div class="chart-bar ${x.pct > 100 ? "over" : ""}" style="height:${Math.max(2, (x.pct / 150) * 135)}px" title="Đã phân bổ ${x.load} phút / sức chứa ${x.cap} phút"></div><div class="chart-label">${x.d.toLocaleDateString("vi-VN", { weekday: "short", day: "numeric" })}</div></div>`).join("")}</div>`;
   }
   function dayLabel(key) {
     let today = localDay(now()),
@@ -1140,30 +1118,6 @@
       )
       .join("")}</tbody></table></div>`;
   }
-  function renderLibrary() {
-    let u = current();
-    pageHead(
-      "Thư viện",
-      "Tài liệu cá nhân, chia sẻ được mô phỏng cục bộ và thư viện dự án.",
-    );
-    let items = state.libraries[u.id] || [];
-    $("#content").innerHTML =
-      `<div class="grid"><div class="card span-6"><div class="section-head"><h2>Thư viện cá nhân</h2><button data-action="add-file">+ Thêm tài liệu</button></div><p class="muted">Bản demo chỉ lưu tên, mô tả và đường dẫn tài liệu trên trình duyệt; không tải tệp lên máy chủ. Việc chia sẻ chỉ được mô phỏng trong ứng dụng.</p><div class="row"><button class="secondary" data-action="share-library">Chia sẻ thư viện hiện tại</button><button class="secondary" data-action="revoke-library">Thu hồi chia sẻ</button></div>${items.map((f) => `<div class="item"><div><div class="item-title">${esc(f.name)}</div><div class="item-meta">${esc(f.description || "")} ${f.url ? `· <a href="${esc(f.url)}" target="_blank" rel="noopener">Mở liên kết</a>` : ""}</div><div class="item-meta">Chia sẻ: ${f.sharedWith?.length ? f.sharedWith.map((id) => esc(state.users.find((x) => x.id === id)?.name || id)).join(", ") : "Không"} ${f.sharedAllAtCreation ? "· Có trong ảnh chụp thư viện chia sẻ" : ""}</div></div><div class="actions"><button class="small secondary" data-action="edit-file" data-id="${f.id}">Sửa</button><button class="small danger" data-action="delete-file" data-id="${f.id}">Xóa</button></div></div>`).join("") || '<div class="empty">Chưa có tài liệu.</div>'}</div><div class="card span-6"><h2>Tài liệu dự án & minh chứng</h2>${
-        state.projects
-          .filter(
-            (p) =>
-              p.memberIds?.includes(u.id) ||
-              p.teacherIds?.includes(u.id) ||
-              p.groups.some((g) => g.memberIds.includes(u.id)),
-          )
-          .map(
-            (p) =>
-              `<div class="item"><div><div class="item-title">${esc(p.name)}</div><div class="item-meta">${p.resources.length} tài liệu · ${p.evidence.length} minh chứng</div></div><button class="small secondary" data-action="project-detail" data-id="${p.id}">Mở</button></div>`,
-          )
-          .join("") ||
-        '<div class="empty">Chưa có thư viện dự án được cấp quyền.</div>'
-      }</div></div>`;
-  }
   function renderReports() {
     let u = current();
     pageHead(
@@ -1334,7 +1288,7 @@
         .reverse();
     pageHead("Thông báo", "Nhắc hạn cục bộ, cảnh báo và hoạt động dự án.");
     $("#content").innerHTML =
-      `<div class="section-head"><div class="muted">Nhắc hạn mặc định: 24 giờ và 2 giờ trước hạn. Bật “Thông báo trên màn hình máy tính” bên dưới để nhận cả khi đã đóng tab.</div><button class="secondary" data-action="mark-read">Đánh dấu đã đọc</button></div><div class="card"><h2>Hộp thư thông báo</h2>${notificationList(ns)}</div><div class="card" style="margin-top:16px"><h2>Kiểm tra nhắc hạn</h2><p class="muted">Ứng dụng kiểm tra khi đang mở; thông báo lỗi thời sẽ bị bỏ qua. Nếu bật “Chỉ nhắc trong thời gian học”, thông báo thường được xếp hàng tới khung rảnh tiếp theo.</p><button data-action="check-reminders">Kiểm tra ngay</button></div>`;
+      `<div class="section-head"><div class="muted">Nhắc hạn mặc định: 24 giờ và 2 giờ trước hạn. Bật “Thông báo trên màn hình máy tính” bên dưới để nhận cả khi đã đóng tab.</div><button class="secondary" data-action="mark-read">Đánh dấu đã đọc</button></div><div class="card"><h2>Hộp thư thông báo</h2>${notificationList(ns)}</div>`;
     SL.afterNotifications?.($("#content"));
   }
   function notificationList(ns) {
@@ -1359,7 +1313,7 @@
               `<div class="item"><div><div class="item-title">${esc(b.label)}</div><div class="item-meta">${b.start}–${b.end} · ${b.days.map((d) => ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][d]).join(", ")}</div></div><button class="small danger" data-action="delete-busy" data-id="${b.id}">Xóa</button></div>`,
           )
           .join("") || '<div class="empty">Chưa khai báo.</div>'
-      }</div></div><div class="card span-6"><h2>Nhắc hạn</h2><label class="checkrow"><input id="studyOnly" type="checkbox" ${state.reminderSettings.studyOnly ? "checked" : ""}> Chỉ nhắc trong thời gian học / rảnh đã khai báo</label><label>Mốc nhắc (giờ trước hạn, phân cách bằng dấu phẩy)</label><input id="reminderHours" value="${esc(state.reminderSettings.hours.join(", "))}"><div style="margin-top:12px"><button data-action="save-reminders">Lưu thay đổi</button></div><p class="footer-note">Nhắc hạn được kiểm tra khi ứng dụng đang mở.</p></div><div class="card span-6"><h2>Tài khoản</h2><p>Đang đăng nhập: <b>${esc(u.name)}</b> (${isAdmin() ? "quản trị viên" : isTeacher() ? "giáo viên" : "học sinh"}).</p><button data-goto="profile">Hồ sơ & yêu cầu</button><button class="secondary" data-action="logout" style="margin-left:8px">Đăng xuất</button><p class="footer-note">Dữ liệu được lưu trên máy chủ Supabase và đồng bộ giữa các thiết bị.</p></div><div class="card span-6"><h2>Lịch học</h2><button class="secondary" data-action="recalc">Tính lại lịch học</button><button class="secondary" data-action="reset-timer">Dừng bộ đếm</button></div></div>`;
+      }</div></div><div class="card span-6"><h2>Nhắc hạn</h2><label class="checkrow"><input id="studyOnly" type="checkbox" ${state.reminderSettings.studyOnly ? "checked" : ""}> Chỉ nhắc trong thời gian học / rảnh đã khai báo</label><label>Mốc nhắc (giờ trước hạn, phân cách bằng dấu phẩy)</label><input id="reminderHours" value="${esc(state.reminderSettings.hours.join(", "))}"><div style="margin-top:12px"><button data-action="save-reminders">Lưu thay đổi</button></div><p class="footer-note">Nhắc hạn được kiểm tra khi ứng dụng đang mở.</p></div><div class="card span-6"><h2>Tài khoản</h2><p>Đang đăng nhập: <b>${esc(u.name)}</b> (${isAdmin() ? "quản trị viên" : isTeacher() ? "giáo viên" : "học sinh"}).</p><button data-goto="profile">Hồ sơ & yêu cầu</button><button class="secondary" data-action="logout" style="margin-left:8px">Đăng xuất</button><p class="footer-note">Dữ liệu được lưu trên máy chủ Supabase và đồng bộ giữa các thiết bị.</p></div></div>`;
   }
   function modal(title, body, submitText = "Lưu") {
     $("#modalRoot").innerHTML =
@@ -2121,47 +2075,6 @@
       projectDetail(p.id);
     };
   }
-  function addFile(existing) {
-    modal(
-      existing ? "Sửa tài liệu" : "Thêm tài liệu cá nhân",
-      `<form id="fileForm"><label>Tên tài liệu *</label><input name="name" required value="${esc(existing?.name || "")}"><label>Mô tả</label><textarea name="description" rows="2">${esc(existing?.description || "")}</textarea><label>Liên kết (tùy chọn)</label><input name="url" type="url" value="${esc(existing?.url || "")}"><label>Chia sẻ riêng với</label>${state.users
-        .filter((u) => u.id !== current().id)
-        .map(
-          (u) =>
-            `<label class="checkrow"><input type="checkbox" name="shared" value="${u.id}" ${(existing?.sharedWith || []).includes(u.id) ? "checked" : ""}>${esc(u.name)}</label>`,
-        )
-        .join("")}</form>`,
-    );
-    $("#modalSubmit").onclick = () => {
-      let f = $("#fileForm");
-      if (!f.reportValidity()) return;
-      let d = new FormData(f),
-        items =
-          state.libraries[current().id] || (state.libraries[current().id] = []);
-      if (existing)
-        Object.assign(existing, {
-          name: d.get("name"),
-          description: d.get("description"),
-          url: d.get("url"),
-          sharedWith: d.getAll("shared"),
-        });
-      else
-        items.push({
-          id: uid("f"),
-          ownerId: current().id,
-          name: d.get("name"),
-          description: d.get("description"),
-          url: d.get("url"),
-          sharedWith: d.getAll("shared"),
-          sharedAllAtCreation: false,
-          source: "user",
-        });
-      closeModal();
-      save();
-      render();
-      toast("Đã lưu tài liệu.");
-    };
-  }
   function closeCycle() {
     let ts = state.tasks.filter((t) => t.ownerId === current().id),
       actual = ts.reduce((n, t) => n + (+t.actualMinutes || 0), 0),
@@ -2311,51 +2224,6 @@
         closeModal();
         projectDetail(id);
         break;
-      case "add-file":
-        addFile();
-        break;
-      case "edit-file":
-        addFile((state.libraries[u.id] || []).find((f) => f.id === id));
-        break;
-      case "delete-file":
-        if (confirm("Xóa tài liệu khỏi thư viện của bạn?")) {
-          state.libraries[u.id] = (state.libraries[u.id] || []).filter(
-            (f) => f.id !== id,
-          );
-          save();
-          render();
-        }
-        break;
-      case "share-library": {
-        let items = state.libraries[u.id] || [];
-        if (!items.length) {
-          toast("Thư viện trống.");
-          break;
-        }
-        let ids = state.users.filter((x) => x.id !== u.id).map((x) => x.id);
-        items.forEach((f) => {
-          f.sharedWith = [...new Set([...(f.sharedWith || []), ...ids])];
-          f.sharedAllAtCreation = true;
-        });
-        save();
-        render();
-        toast("Đã chia sẻ các tệp hiện có. Tệp mới sẽ không tự chia sẻ.");
-        break;
-      }
-      case "revoke-library":
-        (state.libraries[u.id] || []).forEach((f) => {
-          f.sharedWith = [];
-          f.sharedAllAtCreation = false;
-        });
-        save();
-        render();
-        toast(
-          "Đã thu hồi quyền truy cập trong ứng dụng. Bản sao đã tải xuống không bị xóa.",
-        );
-        break;
-      case "check-reminders":
-        checkReminders();
-        break;
       case "read-notice": {
         let n = state.notifications.find((n) => n.id === id);
         if (n) n.read = true;
@@ -2372,26 +2240,6 @@
         break;
       case "save-reminders":
         saveReminders();
-        break;
-      case "recalc":
-        schedule(u.id);
-        render();
-        toast("Đã tính lại lịch tương lai.");
-        break;
-      case "reset-timer":
-        if (timer.status !== "idle") {
-          pauseTimer(false);
-          timer = {
-            taskId: null,
-            status: "idle",
-            accum: 0,
-            startedAt: null,
-            autoPausePrompted: false,
-          };
-          clearInterval(timerInterval);
-          closeModal();
-        }
-        toast("Đồng hồ cục bộ đã dừng.");
         break;
       case "close-cycle":
         closeCycle();
