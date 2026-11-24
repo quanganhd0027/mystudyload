@@ -379,7 +379,7 @@
       items.splice(0, items.length, ...items.filter(([p]) => !hide.has(p)));
       items.splice(1, 0, ["users", "☰ Người dùng"], ["adminclasses", "⌂ Lớp học (Admin)"], ["subjects", "✎ Môn học"], ["audit", "⛨ Nhật ký kiểm toán"], ["switchacct", "⇄ Đổi tài khoản"]);
       const qa = $("#quickAdd"); if (qa) qa.classList.add("hidden");
-    } else { const qa = $("#quickAdd"); if (qa) qa.classList.remove("hidden"); }
+    } else { const qa = $("#quickAdd"); if (qa) { qa.classList.remove("hidden"); qa.textContent = isStudent() ? "+ Nhiệm vụ" : "+ Giao bài"; } }
     // Rút gọn menu: Thư viện chỉ là bản demo → ẩn với mọi vai trò (mã trang vẫn còn)
     { const hideAll = new Set();
       if (!isAdmin() && current().role === "student") {
@@ -853,7 +853,7 @@
       ? state.tasks.filter((t) => t.ownerId === u.id)
       : state.tasks.filter((t) => allowedTaskIds(u).has(t.id));
     $("#content").innerHTML =
-      `<div class="section-head"><div class="row"><input id="taskSearch" placeholder="Tìm theo tên nhiệm vụ hoặc môn học…" style="width:240px"><select id="taskFilter" style="width:170px"><option value="all">Tất cả</option><option value="todo">Chưa bắt đầu</option><option value="doing">Đang làm</option><option value="done">Hoàn thành</option><option value="overdue">Quá hạn</option><option value="risk">Có nguy cơ trễ hạn</option></select><select id="taskClass" style="width:150px"><option value="all">Mọi lớp</option><option value="personal">Cá nhân</option>${state.classes.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><select id="taskSubject" style="width:150px"><option value="all">Mọi môn</option>${[...new Set(tasks.map((t) => t.subject).filter(Boolean))].sort().map((x) => `<option>${esc(x)}</option>`).join("")}</select><button class="secondary small" id="taskClear">Xóa bộ lọc</button></div>${isStudent() ? '<button data-action="new-task">+ Tạo nhiệm vụ cá nhân</button>' : ""}</div><div id="taskList" class="stack"></div>`;
+      `<div class="section-head"><div class="row"><input id="taskSearch" placeholder="Tìm theo tên nhiệm vụ hoặc môn học…" style="width:240px"><select id="taskFilter" style="width:170px"><option value="all">Tất cả</option><option value="todo">Chưa bắt đầu</option><option value="doing">Đang làm</option><option value="done">Hoàn thành</option><option value="overdue">Quá hạn</option><option value="risk">Có nguy cơ trễ hạn</option></select><select id="taskClass" style="width:150px"><option value="all">Mọi lớp</option><option value="personal">Cá nhân</option>${state.classes.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><select id="taskSubject" style="width:150px"><option value="all">Mọi môn</option>${[...new Set(tasks.map((t) => t.subject).filter(Boolean))].sort().map((x) => `<option>${esc(x)}</option>`).join("")}</select><button class="secondary small" id="taskClear">Xóa bộ lọc</button></div>${isStudent() ? '<button data-action="new-task">${isStudent() ? "+ Tạo nhiệm vụ cá nhân" : "+ Giao bài cho lớp"}</button>' : ""}</div><div id="taskList" class="stack"></div>`;
     function draw() {
       let q = $("#taskSearch").value.toLowerCase(),
         f = $("#taskFilter").value;
@@ -2211,7 +2211,7 @@
         taskDetail(id);
         break;
       case "new-task":
-        openTask();
+        if (isStudent()) openTask(); else SL.assignPick();
         break;
       case "edit-task":
         closeModal();
@@ -2458,11 +2458,7 @@
   });
   $("#quickAdd").onclick = () => {
     if (isStudent()) openTask();
-    else {
-      let c = state.classes.find((c) => c.teacherIds.includes(current().id));
-      if (c) assignTask(c.id);
-      else toast("Tạo lớp trước khi giao nhiệm vụ.");
-    }
+    else SL.assignPick(); // giáo viên: chọn lớp rồi giao
   };
   $("#profileButton").addEventListener("click", () => { page = "profile"; render(); });
   $("#saveChip").addEventListener("click", () => { if (A.sync.status === "error") A.sync.retry(); });
