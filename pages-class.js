@@ -88,9 +88,10 @@ const formErr = (e) => { throw e; };
 TABS.overview = (el, c) => {
   const P = c.perms, subs = SL.subjects(), byT = {}; (c.cls.subjectTeachers || []).forEach((r) => (byT[r.teacherId] ||= []).push(subs.find((s) => s.id === r.subjectId)?.name || ''));
   const myRoles = P.adm ? 'Quản trị viên' : P.home ? 'Giáo viên chủ nhiệm' : P.tch ? 'Giáo viên bộ môn' : P.roles.length ? P.roles.map((r) => ROLE[r]).join(', ') : 'Học sinh';
-  el.innerHTML = `<div class="grid"><div class="card span-6"><h2>${esc(c.cls.name)}</h2><dl class="kv"><dt>Năm học</dt><dd>${esc(c.cls.academicYear || '—')}</dd><dt>Mô tả</dt><dd>${esc(c.cls.description || '—')}</dd><dt>Chủ nhiệm</dt><dd>${c.cls.homeroomId ? nm(c, c.cls.homeroomId) : '<span class="muted">Chưa có</span>'}</dd><dt>Sĩ số</dt><dd>${c.members.length}</dd><dt>Số tổ</dt><dd>${c.teams.length}</dd><dt>Vai trò của bạn</dt><dd>${esc(myRoles)}</dd></dl></div>
+  el.innerHTML = `<div class="grid"><div class="card span-6"><div class="between"><h2>${esc(c.cls.name)}</h2>${c.perms.adm ? '<button class="small secondary" id="clsEdit">Sửa tên lớp</button>' : ''}</div><dl class="kv"><dt>Năm học</dt><dd>${esc(c.cls.academicYear || '—')}</dd><dt>Mô tả</dt><dd>${esc(c.cls.description || '—')}</dd><dt>Chủ nhiệm</dt><dd>${c.cls.homeroomId ? nm(c, c.cls.homeroomId) : '<span class="muted">Chưa có</span>'}</dd><dt>Sĩ số</dt><dd>${c.members.length}</dd><dt>Số tổ</dt><dd>${c.teams.length}</dd><dt>Vai trò của bạn</dt><dd>${esc(myRoles)}</dd></dl></div>
     <div class="card span-6"><h2>Giáo viên bộ môn</h2>${Object.keys(byT).length ? Object.entries(byT).map(([t, s]) => `<div class="item"><div class="item-title">${nm(c, t)}</div><div class="item-meta">${esc(s.join(', '))}</div></div>`).join('') : ui.empty('Chưa phân công giáo viên bộ môn.')}${P.assign ? `<div style="margin-top:12px"><button class="small" id="asgn">Giao nhiệm vụ cho cả lớp</button></div>` : ''}</div></div>`;
   $('#asgn')?.addEventListener('click', () => SL.assignToClass(c.cls.id));
+  $('#clsEdit')?.addEventListener('click', () => SL.classForm && SL.classForm(c.cls));
 };
 
 /* ---------- Thành viên (giáo viên chủ nhiệm thêm bằng mã học sinh) ---------- */

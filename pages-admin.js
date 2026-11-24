@@ -242,7 +242,7 @@ function drawRequests(el) {
 /* ---------------- Quản lý lớp (Admin) ---------------- */
 const C = { q: '', page: 0 };
 SL.pages.adminclasses = {
-  title: 'Quản lý lớp học', sub: 'Tạo lớp, sửa thông tin, thêm học sinh và phân công giáo viên.',
+  title: 'Quản lý lớp học', sub: 'Tạo lớp, sửa tên, thêm học sinh và phân công giáo viên chủ nhiệm.',
   render(el) {
     if (!guardAdmin(el)) return;
     el.innerHTML = `<div class="toolbar"><input id="cq" placeholder="Tìm tên lớp…" value="${esc(C.q)}"><button id="cnew">+ Tạo lớp</button></div><div id="cList"></div><div class="pager" id="cPager"></div>`;
@@ -250,7 +250,7 @@ SL.pages.adminclasses = {
     $('#cnew').onclick = () => classForm(null);
     const draw = () => {
       const all = SL.state().classes.filter((c) => norm(c.name).includes(norm(C.q))), data = all.slice(C.page * PAGE, C.page * PAGE + PAGE), nm = (id) => SL.state().users.find((u) => u.id === id)?.name || '';
-      $('#cList').innerHTML = data.length ? `<div class="table-wrap"><table><thead><tr><th>Lớp</th><th>Chủ nhiệm</th><th>Sĩ số</th><th>Thao tác</th></tr></thead><tbody>${data.map((c) => `<tr><td><b>${esc(c.name)}</b><div class="muted">${esc(c.academicYear || '')} ${esc(c.description || '')}</div></td><td>${c.homeroomId ? esc(nm(c.homeroomId)) : '<span class="muted">Chưa có</span>'}</td><td>${c.studentIds.length}</td><td class="actions"><button class="small secondary" data-open="${c.id}">Mở lớp</button> <button class="small secondary" data-edit="${c.id}">Sửa</button> <button class="small secondary" data-assign="${c.id}">Giáo viên</button> <button class="small secondary" data-mem="${c.id}">Học sinh</button> <button class="small danger" data-del="${c.id}">Xóa</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Chưa có lớp nào. Bấm "Tạo lớp" để bắt đầu.');
+      $('#cList').innerHTML = data.length ? `<div class="table-wrap"><table><thead><tr><th>Lớp</th><th>Chủ nhiệm</th><th>Sĩ số</th><th>Thao tác</th></tr></thead><tbody>${data.map((c) => `<tr><td><b>${esc(c.name)}</b><div class="muted">${esc(c.academicYear || '')} ${esc(c.description || '')}</div></td><td>${c.homeroomId ? esc(nm(c.homeroomId)) : '<span class="muted">Chưa có</span>'}</td><td>${c.studentIds.length}</td><td class="actions"><button class="small secondary" data-open="${c.id}">Mở lớp</button> <button class="small secondary" data-edit="${c.id}">Sửa tên</button> <button class="small secondary" data-assign="${c.id}">Chủ nhiệm</button> <button class="small secondary" data-mem="${c.id}">Học sinh</button> <button class="small danger" data-del="${c.id}">Xóa</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Chưa có lớp nào. Bấm "Tạo lớp" để bắt đầu.');
       pager($('#cPager'), C.page, all.length, PAGE, (p) => { C.page = p; draw(); });
       const find = (id) => SL.state().classes.find((x) => x.id === id);
       el.querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => { SL.selectedClass = b.dataset.open; SL.go('classmgmt'); }));
@@ -268,8 +268,9 @@ SL.pages.adminclasses = {
     draw();
   }
 };
+SL.classForm = classForm;
 function classForm(c) {
-  ui.form(c ? 'Sửa lớp' : 'Tạo lớp mới', `<form><label>Tên lớp *</label><input name="n" required maxlength="60" value="${esc(c?.name || '')}"><label>Năm học</label><input name="y" maxlength="20" placeholder="2026-2027" value="${esc(c?.academicYear || '')}"><label>Mô tả</label><textarea name="d" rows="2">${esc(c?.description || '')}</textarea></form>`, 'Lưu',
+  ui.form(c ? 'Sửa tên lớp' : 'Tạo lớp mới', `<form><label>Tên lớp *</label><input name="n" required maxlength="60" value="${esc(c?.name || '')}"><label>Năm học</label><input name="y" maxlength="20" placeholder="2026-2027" value="${esc(c?.academicYear || '')}"><label>Mô tả</label><textarea name="d" rows="2">${esc(c?.description || '')}</textarea></form>`, 'Lưu',
     async (root) => { const f = root.querySelector('form'); if (!f.reportValidity()) return false; const v = Object.fromEntries(new FormData(f).entries());
       if (c) await A.rpc('admin_update_class', { p_class_id: c.id, p_name: v.n.trim(), p_academic_year: v.y.trim() || null, p_description: v.d.trim() || null });
       else await A.rpc('admin_create_class', { p_name: v.n.trim(), p_academic_year: v.y.trim() || null, p_description: v.d.trim() || null });
@@ -277,20 +278,20 @@ function classForm(c) {
 }
 async function assignTeachers(c) {
   let teachers; try { teachers = (await listUsers('')).filter((u) => u.role === 'teacher' && !u.is_banned); } catch (e) { return SL.toast(A.toApiError(e).message); }
-  const subs = SL.subjects(), nm = (id) => teachers.find((t) => t.user_id === id)?.display_name || SL.state().users.find((u) => u.id === id)?.name || '';
+  const label = (t) => t.display_name || t.username;
+  const nm = (id) => { const t = teachers.find((x) => x.user_id === id); return t ? label(t) : (SL.state().users.find((u) => u.id === id)?.name || ''); };
   const cur = () => SL.state().classes.find((x) => x.id === c.id) || c;
   const draw = () => {
     const k = cur(), box = $('#asgBody');
-    box.innerHTML = `<label>Giáo viên chủ nhiệm</label><div class="row"><select id="hrSel">${teachers.map((t) => `<option value="${t.user_id}" ${k.homeroomId === t.user_id ? 'selected' : ''}>${esc(t.display_name || t.username)} (${esc(t.username)})</option>`).join('')}</select><button class="small" id="hrSave">Đặt chủ nhiệm</button></div>
-      <label style="margin-top:16px">Giáo viên bộ môn</label>${(k.subjectTeachers || []).length ? k.subjectTeachers.map((r) => `<div class="ev-item"><span>${esc(subs.find((s) => s.id === r.subjectId)?.name || '')} — ${esc(nm(r.teacherId))}</span></div>`).join('') : '<div class="muted">Chưa phân công môn nào.</div>'}
-      <div class="inline-form" style="margin-top:10px"><div><label>Môn</label><select id="sSel">${subs.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></div><div><label>Giáo viên</label><select id="tSel">${teachers.map((t) => `<option value="${t.user_id}">${esc(t.display_name || t.username)}</option>`).join('')}</select></div><button class="small" id="addCst" ${subs.length && teachers.length ? '' : 'disabled'}>Phân công</button></div>
-      ${!teachers.length ? '<div class="notice">Chưa có tài khoản giáo viên. Hãy duyệt yêu cầu hoặc đổi vai trò ở mục "Người dùng".</div>' : ''}${!subs.length ? '<div class="notice">Chưa có môn học. Hãy tạo ở mục "Môn học".</div>' : ''}<div id="asgErr" class="notice red hidden"></div>`;
+    box.innerHTML = `<div class="notice ${k.homeroomId ? 'green' : ''}" style="margin-bottom:12px">Chủ nhiệm hiện tại: <b>${k.homeroomId ? esc(nm(k.homeroomId)) : 'chưa có'}</b></div>
+      ${teachers.length ? `<label>Chọn giáo viên chủ nhiệm</label><div class="row"><select id="hrSel"><option value="">— Chọn giáo viên —</option>${teachers.map((t) => `<option value="${t.user_id}" ${k.homeroomId === t.user_id ? 'selected' : ''}>${esc(label(t))}</option>`).join('')}</select><button class="small" id="hrSave">${k.homeroomId ? 'Đổi chủ nhiệm' : 'Đặt chủ nhiệm'}</button>${k.homeroomId ? '<button class="small danger" id="hrClear">Bỏ chủ nhiệm</button>' : ''}</div>`
+        : '<div class="notice">Chưa có tài khoản giáo viên. Hãy duyệt yêu cầu hoặc đổi vai trò ở mục "Người dùng".</div>'}<div id="asgErr" class="notice red hidden"></div>`;
     const err = (e) => { const x = $('#asgErr'); x.textContent = A.toApiError(e).message; x.classList.remove('hidden'); };
     const after = async (msg) => { await SL.reload(); SL.toast(msg); SL.modalRedraw?.(); draw(); };
-    $('#hrSave')?.addEventListener('click', async () => { try { await A.rpc('admin_assign_homeroom_teacher', { p_class_id: c.id, p_teacher_id: $('#hrSel').value }); await after('Đã đặt giáo viên chủ nhiệm.'); } catch (e) { err(e); } });
-    $('#addCst')?.addEventListener('click', async () => { try { await A.rpc('admin_assign_subject_teacher', { p_class_id: c.id, p_subject_id: $('#sSel').value, p_teacher_id: $('#tSel').value }); await after('Đã phân công giáo viên bộ môn.'); } catch (e) { err(e); } });
+    $('#hrSave')?.addEventListener('click', async () => { const v = $('#hrSel').value; if (!v) return err(new Error('Hãy chọn một giáo viên.')); try { await A.rpc('admin_assign_homeroom_teacher', { p_class_id: c.id, p_teacher_id: v }); await after('Đã đặt giáo viên chủ nhiệm.'); } catch (e) { err(e); } });
+    $('#hrClear')?.addEventListener('click', async () => { if (!confirm('Bỏ giáo viên chủ nhiệm của lớp ' + c.name + '?')) return; try { await A.rpc('admin_clear_homeroom_teacher', { p_class_id: c.id }); await after('Đã bỏ chủ nhiệm.'); } catch (e) { err(e); } });
   };
-  SL.modal(`Phân công giáo viên · ${esc(c.name)}`, '<div id="asgBody"></div>', 'Xong');
+  SL.modal(`Chủ nhiệm · lớp ${esc(c.name)}`, '<div id="asgBody"></div>', 'Xong');
   $('#modalSubmit').onclick = () => SL.closeModal();
   draw();
 }
