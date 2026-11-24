@@ -48,6 +48,7 @@ const RC = { ...RC_DEF }; let rcLoaded = false;
 const loadRoleColors = async () => { try { (await A.run(A.sb.from('role_colors').select('*'))).forEach((r) => (RC[r.role] = r.color)); } catch (e) { /* dùng màu mặc định */ } rcLoaded = true; };
 const roleKey = (u) => (u.role === 'student' && u.is_officer ? 'officer' : u.role);
 const roleBadge = (k) => { const c = RC[k] || '#64748b'; return `<span class="badge" style="background:${c}22;color:${c};border:1px solid ${c};font-weight:600">${roleText(k)}</span>`; };
+SL.roleUi = { RC, roleKey, roleBadge, load: loadRoleColors, loaded: () => rcLoaded };
 const roleColorCard = () => `<details class="card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600">Màu thẻ vai trò</summary><div class="row" style="flex-wrap:wrap;gap:16px;margin-top:10px">${Object.keys(RC_DEF).map((k) => `<label style="display:flex;align-items:center;gap:8px">${roleText(k)} <input type="color" data-rc="${k}" value="${RC[k]}"></label>`).join('')}<button class="small" id="rcSave">Lưu màu</button></div><div class="muted" style="margin-top:6px">Ví dụ chọn màu vàng cho Học sinh thì thẻ của mọi học sinh chuyển sang vàng.</div></details>`;
 function drawAccounts(el) {
   if (!rcLoaded) { loadRoleColors().then(() => drawAccounts(el)); return; }

@@ -18,6 +18,7 @@ async function adminClient() {
   return c;
 }
 // quản trị viên và giáo viên lên đầu, học sinh sau; cùng nhóm thì theo tên
+const RU = { RC: {}, roleKey: (u) => u.role, roleBadge: (k) => esc(k), ...(window.SL && SL.roleUi || {}) };
 const byRole = (rows) => { const rk = { admin: 0, teacher: 1 }; return rows.slice().sort((a, b) => (rk[a.role] ?? 2) - (rk[b.role] ?? 2) || String(a.display_name || a.username || '').localeCompare(String(b.display_name || b.username || ''), 'vi')); };
 async function searchAccounts(q, role) {
   const prev = read();
@@ -63,9 +64,10 @@ function bindPicker(root) {
   const load = async () => {
     list.innerHTML = '<div class="muted">Đang tải…</div>';
     let rows;
+    if (SL.roleUi && !SL.roleUi.loaded()) { try { await SL.roleUi.load(); } catch (e) { /* màu mặc định */ } }
     try { rows = await searchAccounts(root.querySelector('#swq').value.trim(), root.querySelector('#swr').value); } catch (e) { list.innerHTML = ui.empty(esc(e.message || 'Không tải được danh sách.')); return; }
     const me = SL.current().id;
-    list.innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>Tên</th><th>Mã HS / SĐT</th><th>Vai trò</th><th></th></tr></thead><tbody>${rows.map((u, i) => `<tr><td>${esc(u.display_name || u.username || '')}</td><td>${esc(u.student_code || u.phone || '')}</td><td>${esc(roleName(u))}</td><td>${u.is_banned ? '<span class="muted">Đã khóa</span>' : u.user_id === me ? '<span class="muted">Đang dùng</span>' : `<button class="small" data-i="${i}">Vào tài khoản</button>`}</td></tr>`).join('')}</tbody></table></div>` : ui.empty('Không có tài khoản phù hợp.');
+    list.innerHTML = rows.length ? `<div class="table-wrap"><table><thead><tr><th>Tên</th><th>Mã HS / SĐT</th><th>Vai trò</th><th></th></tr></thead><tbody>${rows.map((u, i) => { const k = RU.roleKey(u); return `<tr style="box-shadow:inset 5px 0 0 ${RU.RC[k] || 'transparent'}"><td><span class="row" style="gap:8px;flex-wrap:nowrap">${SL.av ? SL.av(u.user_id, u.display_name, k, 30) : ''}<b>${esc(u.display_name || u.username || '')}</b></span></td><td>${esc(u.student_code || u.phone || '')}</td><td>${RU.roleBadge(k)}</td><td>${u.is_banned ? '<span class="muted">Đã khóa</span>' : u.user_id === me ? '<span class="muted">Đang dùng</span>' : `<button class="small" data-i="${i}">Vào tài khoản</button>`}</td></tr>`; }).join('')}</tbody></table></div>` : ui.empty('Không có tài khoản phù hợp.');
     list.querySelectorAll('[data-i]').forEach((b) => (b.onclick = async () => { b.disabled = true; b.textContent = 'Đang vào…'; try { await switchTo(rows[+b.dataset.i]); } catch (e) { SL.toast(e.message || A.toApiError(e).message); } b.disabled = false; b.textContent = 'Vào tài khoản'; }));
   };
   let t; root.querySelector('#swq').oninput = () => { clearTimeout(t); t = setTimeout(load, 350); };
