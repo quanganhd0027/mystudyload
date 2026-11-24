@@ -245,7 +245,7 @@ async function loadWorld(profile) {
     subject: '', classIds: [], studentCode: id === profile.id ? profile.student_code : '', className: id === profile.id ? profile.class_name : '', banned: !!d.banned }));
   const byId = Object.fromEntries(users.map(u => [u.id, u]));
 
-  const cls = classes.map(c => ({ id: c.id, name: c.name, academicYear: c.academic_year || '', description: c.description || '',
+  const cls = classes.map(c => ({ id: c.id, name: c.name, grade: c.grade || null, academicYear: c.academic_year || '', description: c.description || '',
     teacherIds: [], homeroomId: null, studentIds: [], source: 'server' }));
   const cmap = Object.fromEntries(cls.map(c => [c.id, c]));
   members.forEach(m => { const c = cmap[m.class_id]; if (!c) return; c.studentIds.push(m.student_id); byId[m.student_id]?.classIds.push(c.id); });

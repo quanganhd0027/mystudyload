@@ -250,7 +250,7 @@ SL.pages.adminclasses = {
     $('#cnew').onclick = () => classForm(null);
     const draw = () => {
       const all = SL.state().classes.filter((c) => norm(c.name).includes(norm(C.q))), data = all.slice(C.page * PAGE, C.page * PAGE + PAGE), nm = (id) => SL.state().users.find((u) => u.id === id)?.name || '';
-      $('#cList').innerHTML = data.length ? `<div class="table-wrap"><table><thead><tr><th>Lớp</th><th>Chủ nhiệm</th><th>Sĩ số</th><th>Thao tác</th></tr></thead><tbody>${data.map((c) => `<tr><td><b>${esc(c.name)}</b><div class="muted">${esc(c.academicYear || '')} ${esc(c.description || '')}</div></td><td>${c.homeroomId ? esc(nm(c.homeroomId)) : '<span class="muted">Chưa có</span>'}</td><td>${c.studentIds.length}</td><td class="actions"><button class="small secondary" data-open="${c.id}">Mở lớp</button> <button class="small secondary" data-edit="${c.id}">Sửa tên</button> <button class="small secondary" data-assign="${c.id}">Chủ nhiệm</button> <button class="small secondary" data-mem="${c.id}">Học sinh</button> <button class="small danger" data-del="${c.id}">Xóa</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Chưa có lớp nào. Bấm "Tạo lớp" để bắt đầu.');
+      $('#cList').innerHTML = data.length ? `<div class="table-wrap"><table><thead><tr><th>Lớp</th><th>Khối</th><th>Chủ nhiệm</th><th>Sĩ số</th><th>Thao tác</th></tr></thead><tbody>${data.map((c) => `<tr><td><b>${esc(c.name)}</b><div class="muted">${esc(c.academicYear || '')} ${esc(c.description || '')}</div></td><td>${c.grade ? 'Khối ' + c.grade : '<span class="muted">—</span>'}</td><td>${c.homeroomId ? esc(nm(c.homeroomId)) : '<span class="muted">Chưa có</span>'}</td><td>${c.studentIds.length}</td><td class="actions"><button class="small secondary" data-open="${c.id}">Mở lớp</button> <button class="small secondary" data-edit="${c.id}">Sửa tên</button> <button class="small secondary" data-assign="${c.id}">Chủ nhiệm</button> <button class="small secondary" data-mem="${c.id}">Học sinh</button> <button class="small danger" data-del="${c.id}">Xóa</button></td></tr>`).join('')}</tbody></table></div>` : ui.empty('Chưa có lớp nào. Bấm "Tạo lớp" để bắt đầu.');
       pager($('#cPager'), C.page, all.length, PAGE, (p) => { C.page = p; draw(); });
       const find = (id) => SL.state().classes.find((x) => x.id === id);
       el.querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => { SL.selectedClass = b.dataset.open; SL.go('classmgmt'); }));
@@ -270,10 +270,13 @@ SL.pages.adminclasses = {
 };
 SL.classForm = classForm;
 function classForm(c) {
-  ui.form(c ? 'Sửa tên lớp' : 'Tạo lớp mới', `<form><label>Tên lớp *</label><input name="n" required maxlength="60" value="${esc(c?.name || '')}"><label>Năm học</label><input name="y" maxlength="20" placeholder="2026-2027" value="${esc(c?.academicYear || '')}"><label>Mô tả</label><textarea name="d" rows="2">${esc(c?.description || '')}</textarea></form>`, 'Lưu',
+  ui.form(c ? 'Sửa tên lớp' : 'Tạo lớp mới', `<form><label>Tên lớp *</label><input name="n" required maxlength="60" value="${esc(c?.name || '')}"><label>Khối</label><select name="g"><option value="">— Chưa chọn —</option>${[6,7,8,9,10,11,12].map((g) => `<option value="${g}" ${c?.grade === g ? 'selected' : ''}>Khối ${g}</option>`).join('')}</select><p class="muted">Học sinh trong lớp tự động thuộc khối này.</p><label>Năm học</label><input name="y" maxlength="20" placeholder="2026-2027" value="${esc(c?.academicYear || '')}"><label>Mô tả</label><textarea name="d" rows="2">${esc(c?.description || '')}</textarea></form>`, 'Lưu',
     async (root) => { const f = root.querySelector('form'); if (!f.reportValidity()) return false; const v = Object.fromEntries(new FormData(f).entries());
+      let cid = c ? c.id : null;
       if (c) await A.rpc('admin_update_class', { p_class_id: c.id, p_name: v.n.trim(), p_academic_year: v.y.trim() || null, p_description: v.d.trim() || null });
-      else await A.rpc('admin_create_class', { p_name: v.n.trim(), p_academic_year: v.y.trim() || null, p_description: v.d.trim() || null });
+      else { const r = await A.rpc('admin_create_class', { p_name: v.n.trim(), p_academic_year: v.y.trim() || null, p_description: v.d.trim() || null }); cid = typeof r === 'string' ? r : (r && (r.id || r.class_id)) || null; }
+      const g = v.g ? +v.g : null;
+      if (cid && (g !== (c ? c.grade || null : null))) await A.rpc('admin_set_class_grade', { p_class_id: cid, p_grade: g });
       await SL.reload(); }, c ? 'Đã cập nhật lớp.' : 'Đã tạo lớp.');
 }
 async function assignTeachers(c) {

@@ -6,7 +6,8 @@
 const SL = window.SL, A = window.SLApi, { esc, ui, $ } = SL, sb = A.sb;
 const pad = (n) => String(n).padStart(2, '0');
 const thisMonth = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1); };
-const gradeOf = (name) => { const m = /^\s*(\d+)/.exec(name || ''); return m ? +m[1] : null; };
+const gradeOf = (name) => { const m = /^\s*(\d+)/.exec(name || ''); const g = m ? +m[1] : null; return g >= 6 && g <= 12 ? g : null; };
+const clsGrade = (c) => c.grade || gradeOf(c.name);
 const rankOf = (p) => (p >= 90 ? ['Tốt', 'green'] : p >= 80 ? ['Khá', 'blue'] : p >= 60 ? ['Đạt', 'amber'] : ['Chưa đạt', 'red']);
 const MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
 const sign = (n) => (n > 0 ? '+' + n : String(n));
@@ -17,12 +18,13 @@ const R = { scope: 'class', classId: '', grade: '', month: thisMonth(), open: ''
 
 SL.pages.ranking = {
   title: 'Xếp hạng', sub: 'Điểm rèn luyện nề nếp theo tháng — xếp hạng lớp và xếp hạng khối.',
-  render(el) {
+  render(el, again) {
     const classes = (SL.state().classes || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi', { numeric: true }));
-    if (SL.isStudent() && R.myGrade === undefined) { R.myGrade = null; A.rpc('my_grade').then((g) => { R.myGrade = g == null ? null : +g; if (SL.pages.ranking && document.contains(el)) SL.pages.ranking.render(el); }).catch(() => {}); }
+    if (!again) R.myGrade = undefined;
+    if (SL.isStudent() && R.myGrade === undefined) { R.myGrade = null; A.rpc('my_grade').then((g) => { R.myGrade = g == null ? null : +g; if (SL.pages.ranking && document.contains(el)) SL.pages.ranking.render(el, true); }).catch(() => {}); }
     // học sinh: khối mình đã chọn; admin: mọi khối 6–12; giáo viên: khối của các lớp mình dạy
-    const grades = SL.isStudent() ? (R.myGrade != null ? [R.myGrade] : [...new Set(classes.map((c) => gradeOf(c.name)).filter((g) => g != null))].sort((a, b) => a - b))
-      : SL.isAdmin() ? [6, 7, 8, 9, 10, 11, 12] : [...new Set(classes.map((c) => gradeOf(c.name)).filter((g) => g != null))].sort((a, b) => a - b);
+    const grades = SL.isStudent() ? (R.myGrade != null ? [R.myGrade] : [...new Set(classes.map((c) => clsGrade(c)).filter((g) => g != null))].sort((a, b) => a - b))
+      : SL.isAdmin() ? [6, 7, 8, 9, 10, 11, 12] : [...new Set(classes.map((c) => clsGrade(c)).filter((g) => g != null))].sort((a, b) => a - b);
     if (!classes.length && !grades.length) { el.innerHTML = ui.empty('Bạn chưa thuộc lớp nào nên chưa có bảng xếp hạng. Hãy nhờ giáo viên thêm bạn vào lớp bằng mã học sinh.'); return; }
     if (!classes.some((c) => c.id === R.classId)) R.classId = classes[0] ? classes[0].id : '';
     if (!grades.includes(+R.grade)) R.grade = grades[0] != null ? grades[0] : '';
