@@ -664,6 +664,7 @@
       )
       .reduce((n, t) => n + (+t.actualMinutes || 0), 0);
     $("#content").innerHTML = `<div class="grid">
+ ${helloBanner(u)}
  <div class="card span-4"><div class="stat-label">Nhiệm vụ chưa hoàn thành</div><div class="stat">${tasks.length}</div><div class="muted">${isTeacher() ? `Đang theo dõi ${tasks.length} nhiệm vụ đã giao` : `Còn ${tasks.length} nhiệm vụ chưa làm`}</div></div>
  <div class="card span-4"><div class="stat-label">Thời gian học đã xác nhận</div><div class="stat">${Math.round((mins / 60) * 10) / 10}h</div><div class="muted">Tổng thời gian đã xác nhận</div></div>
  <div class="card span-4"><div class="stat-label">Hạn nộp trong 24 giờ</div><div class="stat">${dueSoon.length}</div><div class="muted">Cần ưu tiên kiểm tra</div></div>
@@ -685,6 +686,16 @@
  )}</div>
  </div>`;
     SL.afterDashboard?.($("#content"));
+  }
+  function helloBanner(u) {
+    let hr = now().getHours(), part = hr < 11 ? "buổi sáng" : hr < 14 ? "buổi trưa" : hr < 18 ? "buổi chiều" : "buổi tối";
+    let msg;
+    if (isStudent()) {
+      let k = localDay(now()), ids = new Set(calDayItems(u, k).filter((x) => !x.done).map((x) => x.t.id));
+      state.tasks.filter((t) => t.ownerId === u.id && t.status !== "done" && localDay(t.dueAt) === k).forEach((t) => ids.add(t.id));
+      msg = ids.size ? `Hôm nay bạn có ${ids.size} bài tập cần làm. Cố lên nhé!` : "Hôm nay bạn không có bài tập nào cần làm. Nghỉ ngơi nhé!";
+    } else msg = "Theo dõi nhiệm vụ đã giao, hạn nộp và tiến độ của học sinh.";
+    return `<div class="hello-banner"><h2>Chào ${part}, ${esc(u.name || "bạn")}! 👋</h2><p>${msg}</p></div>`;
   }
   function todayTasksHtml(u, risks) {
     let k = localDay(now()), items = calDayItems(u, k), byTask = new Map();

@@ -271,3 +271,33 @@ html[data-theme=dark] .wk-seg.ghost{background:#232b40}
 #verTag{position:fixed;left:24px;top:2px;padding:2px 7px;border-radius:6px;background:#262b55;z-index:2147483000;font:700 12px/1.2 system-ui,sans-serif;color:#fff;opacity:.95;pointer-events:none;user-select:none}
 /* nhãn phiên bản: máy tính để ở thanh tiêu đề, cạnh nút hành động; màn hình hẹp giữ ở góc trên trái */
 @media(min-width:951px){#verTag{left:auto;right:440px;top:32px;font-size:16px;padding:4px 10px;border-radius:8px}}
+
+/* =====================================================================
+   v5 — Warm Orange Light: nền trắng ngà, cam ấm, viền cam nhạt, thẻ trắng bo 12px, bóng rất nhẹ.
+   Giao diện tối giữ nguyên bộ biến riêng của nó.
+   ===================================================================== */
+:root{--bg:#fff8f4;--panel:#fff;--ink:#2a1d15;--muted:#86695a;--line:#fddcc8;--brand:#ea580c;--brand2:#fff4ee;--brand-ink:#fff;--green:#15803d;--amber:#b45309;--red:#dc2626;--shadow:0 2px 8px rgba(234,88,12,.06);--shadow-hover:0 6px 16px rgba(234,88,12,.10);--brand-grad:linear-gradient(135deg,#ea580c 0%,#f97316 55%,#fb923c 100%)}
+html:not([data-theme=dark]) .topbar{background:rgba(255,248,244,.92);border-bottom:1px solid var(--line);box-shadow:none}
+.card{border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+html:not([data-theme=dark]) .card:has(>.stat){background:#fff;border:1px solid var(--line);border-top:1px solid var(--line);border-radius:12px;padding:var(--s4);box-shadow:var(--shadow)}
+.card:has(>.stat) .stat-label{color:var(--brand);font-weight:600}
+input,select,textarea{border-color:var(--line)}
+input:focus,select:focus,textarea:focus{border-color:var(--brand)}
+input[type=checkbox],input[type=radio]{accent-color:var(--brand)}
+.badge{border-radius:var(--pill)}
+html:not([data-theme=dark]) .table-wrap th{background:var(--bg);color:var(--muted)}
+/* thanh bên sáng */
+html:not([data-theme=dark]) .sidebar{background:#fff;border-right:1px solid var(--line);box-shadow:none}
+html:not([data-theme=dark]) .logo{color:var(--ink)}
+html:not([data-theme=dark]) .logo:before{background:var(--brand)}
+html:not([data-theme=dark]) .logo span{color:var(--brand);opacity:1}
+html:not([data-theme=dark]) .nav button{color:#5b4435}
+html:not([data-theme=dark]) .nav button:hover:not(.active){background:var(--bg);color:var(--ink)}
+html:not([data-theme=dark]) .nav button.active{background:#fff4ee;color:var(--brand);box-shadow:none;font-weight:650}
+html:not([data-theme=dark]) .side-note{border-top:1px solid var(--line);color:var(--muted)}
+/* banner chào */
+.hello-banner{grid-column:1/-1;background:var(--brand-grad);color:#fff;border-radius:16px;padding:var(--s5) var(--s6);box-shadow:0 6px 18px rgba(234,88,12,.22)}
+.hello-banner h2{margin:0 0 var(--s1);font-size:22px;color:#fff}
+.hello-banner p{margin:0;color:rgba(255,255,255,.92);font-size:14px}
+@media(max-width:520px){.hello-banner{padding:var(--s4)}.hello-banner h2{font-size:18px}}
+#verTag{background:#9a3412}
