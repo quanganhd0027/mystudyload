@@ -19,7 +19,10 @@ SL.pages.ranking = {
   title: 'Xếp hạng', sub: 'Điểm rèn luyện nề nếp theo tháng — xếp hạng lớp và xếp hạng khối.',
   render(el) {
     const classes = (SL.state().classes || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name), 'vi', { numeric: true }));
-    const grades = [...new Set(classes.map((c) => gradeOf(c.name)).filter((g) => g != null))].sort((a, b) => a - b);
+    if (SL.isStudent() && R.myGrade === undefined) { R.myGrade = null; A.rpc('my_grade').then((g) => { R.myGrade = g == null ? null : +g; if (SL.pages.ranking && document.contains(el)) SL.pages.ranking.render(el); }).catch(() => {}); }
+    // học sinh: khối mình đã chọn; admin: mọi khối 6–12; giáo viên: khối của các lớp mình dạy
+    const grades = SL.isStudent() ? (R.myGrade != null ? [R.myGrade] : [...new Set(classes.map((c) => gradeOf(c.name)).filter((g) => g != null))].sort((a, b) => a - b))
+      : SL.isAdmin() ? [6, 7, 8, 9, 10, 11, 12] : [...new Set(classes.map((c) => gradeOf(c.name)).filter((g) => g != null))].sort((a, b) => a - b);
     if (!classes.length && !grades.length) { el.innerHTML = ui.empty('Bạn chưa thuộc lớp nào nên chưa có bảng xếp hạng. Hãy nhờ giáo viên thêm bạn vào lớp bằng mã học sinh.'); return; }
     if (!classes.some((c) => c.id === R.classId)) R.classId = classes[0] ? classes[0].id : '';
     if (!grades.includes(+R.grade)) R.grade = grades[0] != null ? grades[0] : '';

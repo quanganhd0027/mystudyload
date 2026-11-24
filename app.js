@@ -227,6 +227,24 @@
     window.SLPush?.sync();
   }
   /* Sau khi đăng nhập: (1) nếu mã HS bị gỡ thì bắt nhập lại; (2) báo "mã học sinh của bạn đã được lấy lại" */
+  /* Học sinh chưa chọn khối (6–12): hỏi ngay khi vào app, không thể đóng cho tới khi chọn */
+  async function gradeCheck(profile) {
+    try {
+      if (profile.role !== "student" || localStorage.getItem("sl_admin_return")) return;
+      if ((await A.rpc("my_grade")) != null) return;
+      const m = (state.classes || []).map((c) => parseInt(String(c.name).trim(), 10)).find((g) => g >= 6 && g <= 12) || "";
+      const root = $("#modalRoot");
+      root.innerHTML = `<div class="modal-backdrop"><form class="modal" id="gradeForm" role="dialog" aria-modal="true"><h2>Bạn học khối mấy?</h2><p class="muted">Chọn khối để xem bảng xếp hạng khối của bạn.</p><label>Khối<select name="g" required><option value="">— Chọn khối —</option>${[6, 7, 8, 9, 10, 11, 12].map((g) => `<option value="${g}" ${g === m ? "selected" : ""}>Khối ${g}</option>`).join("")}</select></label><div class="notice red" id="gradeErr" hidden></div><div class="actions"><button type="submit">Lưu</button></div></form></div>`;
+      const f = $("#gradeForm");
+      f.onsubmit = async (ev) => {
+        ev.preventDefault(); const g = +f.g.value, e = $("#gradeErr");
+        if (!g) { e.textContent = "Hãy chọn khối."; e.hidden = false; return; }
+        f.querySelector("button").disabled = true; e.hidden = true;
+        try { await A.rpc("set_my_grade", { p_grade: g }); root.innerHTML = ""; showToast("Đã lưu: khối " + g + "."); }
+        catch (e2) { f.querySelector("button").disabled = false; e.textContent = (A.toApiError(e2) || {}).message || "Không lưu được, thử lại."; e.hidden = false; }
+      };
+    } catch (e) { /* bỏ qua */ }
+  }
   /* Tài khoản tạo sẵn: bắt đặt mật khẩu mới ở lần đăng nhập đầu, không thể đóng cho tới khi đổi xong */
   function pwGate(profile) {
     const root = $("#modalRoot");
@@ -242,7 +260,7 @@
         const r = await A.sb.auth.updateUser({ password: p1 });
         if (r.error) throw r.error;
         await A.rpc("clear_must_change_password");
-        root.innerHTML = ""; showToast("Đã đổi mật khẩu. Lần sau hãy đăng nhập bằng mật khẩu mới.");
+        root.innerHTML = ""; showToast("Đã đổi mật khẩu. Lần sau hãy đăng nhập bằng mật khẩu mới."); gradeCheck(profile);
       } catch (e2) { f.querySelector("button").disabled = false; err((e2 && e2.message) || "Không đổi được mật khẩu, thử lại."); }
     };
   }
@@ -254,6 +272,7 @@
         return;
       }
       try { if (!localStorage.getItem("sl_admin_return") && (await A.rpc("my_must_change_password"))) return pwGate(profile); } catch (e) { /* chưa có chức năng này: bỏ qua */ }
+      gradeCheck(profile);
       { const why = await A.rpc("my_code_prompt_reason"); if (why) return codeGate(profile, "", false, false, why); }
       if (profile.role === "student" && (await A.rpc("consume_code_recovery_notice"))) {
         showToast("Mã học sinh của bạn đã được lấy lại.");
