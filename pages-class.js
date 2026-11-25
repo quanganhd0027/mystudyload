@@ -222,9 +222,9 @@ TABS.duty = (el, c, refresh) => {
       async (root) => { await A.rpc('review_duty_submission', { p_duty_schedule_id: id, p_decision: ok ? 'approved' : 'rejected', p_note: root.querySelector('[name=n]').value.trim() || null }); refresh(); }, ok ? 'Đã duyệt.' : 'Đã từ chối, học sinh có thể nộp lại.');
     L.querySelectorAll('[data-ok]').forEach((b) => (b.onclick = () => review(b.dataset.ok, true))); L.querySelectorAll('[data-no]').forEach((b) => (b.onclick = () => review(b.dataset.no, false)));
   });
-  $('#dnew')?.addEventListener('click', () => ui.form('Xếp lịch trực', `<form><div class="form-grid"><div><label>Học sinh *</label><select name="s" required>${memberOpts(c)}</select></div><div><label>Ngày *</label><input type="date" name="d" required value="${wk}"></div><div><label>Công việc *</label><input name="t" required maxlength="60" placeholder="Quét lớp, lau bảng…"></div><div><label>Tổ (nếu có)</label><select name="tm">${teamOpts(c, '— Không —')}</select></div><div class="full"><label>Ghi chú</label><input name="n" maxlength="200"></div></div></form>`, 'Xếp lịch',
+  $('#dnew')?.addEventListener('click', () => ui.form('Xếp lịch trực', `<form><div class="form-grid"><div><label>Học sinh *</label><select name="s" required>${memberOpts(c)}</select></div><div><label>Ngày *</label><input type="date" name="d" required value="${wk}"></div><div><label>Công việc *</label><input name="t" required maxlength="60" placeholder="Quét lớp, lau bảng…"></div><div class="full"><label>Ghi chú</label><input name="n" maxlength="200"></div></div></form>`, 'Xếp lịch',
     async (root) => { const f = root.querySelector('form'); if (!f.reportValidity()) return false; const v = Object.fromEntries(new FormData(f).entries());
-      await A.rpc('create_duty_schedule', { p_class_id: c.cls.id, p_student_id: v.s, p_duty_date: v.d, p_duty_type: v.t.trim(), p_team_id: v.tm || null, p_note: v.n.trim() || null }); refresh(); }, 'Đã xếp lịch trực.'));
+      await A.rpc('create_duty_schedule', { p_class_id: c.cls.id, p_student_id: v.s, p_duty_date: v.d, p_duty_type: v.t.trim(), p_team_id: null, p_note: v.n.trim() || null }); refresh(); }, 'Đã xếp lịch trực.'));
 };
 
 /* ---------- Thông báo lớp ---------- */
