@@ -120,6 +120,7 @@ async function assignContext(classId) { // trả về {source, subjects} theo qu
   const info = await A.rpc('my_teacher_info'), ids = new Set(info.subjects || []);
   return { source: 'teacher', subjects: all.filter((s) => ids.has(s.id)) };
 }
+const toLocalInput = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 SL.assignToClass = async function (classId, className) {
   const me = SL.current(), cls = SL.state().classes.find((c) => c.id === classId) || { id: classId, name: className || 'lớp', studentIds: null };
   if (!className && !SL.state().classes.find((c) => c.id === classId)) return SL.toast('Không tìm thấy lớp.');
@@ -127,21 +128,19 @@ SL.assignToClass = async function (classId, className) {
   try { ctx = await assignContext(classId); } catch (e) { return SL.toast(A.toApiError(e).message); }
   if (!ctx.subjects.length) return SL.toast(SL.isAdmin() || me.role !== 'teacher' ? 'Không có môn học nào để giao.' : 'Hãy chọn môn dạy của bạn trong Hồ sơ trước khi giao bài.');
   if (cls.studentIds && !cls.studentIds.length) return SL.toast('Lớp chưa có học sinh nào để giao bài.');
-  ui.form(`Giao nhiệm vụ cho lớp ${esc(cls.name)}`, `<form><p class="muted">Nhiệm vụ sẽ được giao cho ${cls.studentIds ? cls.studentIds.length + ' ' : 'tất cả '}học sinh của lớp.</p><div class="form-grid">
-    <div class="full"><label>Tiêu đề *</label><input name="title" required maxlength="150"></div>
-    <div class="full"><label>Mô tả</label><textarea name="description" rows="3"></textarea></div>
-    <div><label>Môn học *</label><select name="subject_id" required>${ctx.subjects.map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></div>
-    <div><label>Hạn hoàn thành *</label><input type="datetime-local" name="due" required></div>
-    <div><label>Ngày bắt đầu (tùy chọn)</label><input type="datetime-local" name="start"></div>
-    <div><label>Thời gian dự kiến (phút) *</label><input type="number" name="est" min="1" value="60" required></div>
-    <div><label>Ưu tiên</label><select name="priority"><option value="1">Thường</option><option value="2" selected>Vừa</option><option value="3">Cao</option></select></div></div></form>`, 'Giao bài',
+  ui.form(`Giao nhiệm vụ cho lớp ${esc(cls.name)}`, `<form><div class="form-grid">
+    <div class="full"><label>Tên nhiệm vụ *</label><input name="title" required maxlength="150"></div>
+    <div class="full"><label>Môn học * (tick vào các môn)</label><div class="subj-ticks">${ctx.subjects.map((s, i) => `<label class="checkrow"><input type="checkbox" name="subj" value="${s.id}" ${ctx.subjects.length === 1 ? 'checked' : ''}> ${esc(s.name)}</label>`).join('')}</div></div>
+    <div><label>Ngày giao bài *</label><input type="datetime-local" name="start" required value="${toLocalInput(new Date())}"></div>
+    <div><label>Hạn nộp *</label><input type="datetime-local" name="due" required></div></div></form>`, 'Giao bài',
     async (root) => {
       const f = root.querySelector('form'); if (!f.reportValidity()) return false;
-      const v = Object.fromEntries(new FormData(f).entries());
-      if (new Date(v.due) <= new Date()) throw new A.ApiError('validation', 'Hạn hoàn thành phải sau thời điểm hiện tại.');
-      if (v.start && new Date(v.start) > new Date(v.due)) throw new A.ApiError('validation', 'Ngày bắt đầu phải trước hạn hoàn thành.');
-      await A.run(A.sb.from('assignments').insert({ ...(v.start ? { start_at: toIso(v.start) } : {}), title: v.title.trim(), description: (v.description || '').trim() || null, class_id: classId, subject_id: v.subject_id,
-        estimated_minutes: +v.est, deadline: toIso(v.due), priority: A.PRIO_TO_DB[+v.priority], created_by: me.id, source: ctx.source, teacher_id: ctx.source === 'teacher' ? me.id : null }));
+      const v = Object.fromEntries(new FormData(f).entries()), subs = [...f.querySelectorAll('[name=subj]:checked')].map((x) => x.value);
+      if (!subs.length) throw new A.ApiError('validation', 'Hãy tick ít nhất một môn học.');
+      if (new Date(v.due) <= new Date()) throw new A.ApiError('validation', 'Hạn nộp phải sau thời điểm hiện tại.');
+      if (new Date(v.start) > new Date(v.due)) throw new A.ApiError('validation', 'Ngày giao bài phải trước hạn nộp.');
+      await A.run(A.sb.from('assignments').insert(subs.map((sid) => ({ start_at: toIso(v.start), title: v.title.trim(), description: null, class_id: classId, subject_id: sid,
+        estimated_minutes: 60, deadline: toIso(v.due), priority: A.PRIO_TO_DB[2], created_by: me.id, source: ctx.source, teacher_id: ctx.source === 'teacher' ? me.id : null }))));
       await SL.reload();
     }, 'Đã giao nhiệm vụ cho cả lớp.');
 };
