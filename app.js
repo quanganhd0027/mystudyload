@@ -52,7 +52,7 @@
   });
   let state = emptyState();
   // TẠM THỜI: học sinh chỉ thấy Nhiệm vụ + Hồ sơ (đặt false để bật lại các mục khác)
-  const STUDENT_LITE = true, STUDENT_KEEP = ["tasks", "profile"];
+  const STUDENT_LITE = true; let STUDENT_KEEP = ["tasks", "profile"], liteOfficer = false;
   const isLite = () => STUDENT_LITE && current().role === "student";
   let page = "dashboard",
     timer = {
@@ -397,7 +397,13 @@
     if (isAdmin() || current().role === "teacher") items.push(dataItem);
     if (isAdmin() || current().role === "teacher") items.push(["discipline", "✎ Điểm nề nếp"]);
     items.push(["settings", "⚙ Cài đặt"]);
-    if (!isAdmin() && isLite()) items.splice(0, items.length, ...items.filter(([p]) => STUDENT_KEEP.includes(p)));
+    if (!isAdmin() && isLite()) {
+      STUDENT_KEEP = liteOfficer ? ["dashboard", "tasks", "classmgmt", "profile"] : ["tasks", "profile"];
+      const lab = { dashboard: "◫ Tổng quan", tasks: "☷ Nhiệm vụ", classmgmt: "⚑ Quản lý lớp", profile: "☺ Hồ sơ" };
+      items.splice(0, items.length, ...STUDENT_KEEP.map((p) => [p, lab[p]]));
+      if (!liteOfficer) A.sb.from("class_officer_roles").select("role").eq("user_id", current().id).is("ended_at", null).in("role", ["class_president", "academic_vp"])
+        .then((r) => { if (r.data && r.data.length) { liteOfficer = true; buildNav(); $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.page === page)); } }, () => {});
+    }
     $("#nav").innerHTML = items.map(([p, l]) => `<button data-page="${p}">${l}</button>`).join("");
     if (!isAdmin() && current().role === "student" && !isLite()) { // cán bộ lớp (học sinh) cũng có trang Dữ liệu
       const meId = current().id;
