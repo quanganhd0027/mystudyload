@@ -51,6 +51,9 @@
     weekMode: "week",
   });
   let state = emptyState();
+  // TẠM THỜI: học sinh chỉ thấy Nhiệm vụ + Hồ sơ (đặt false để bật lại các mục khác)
+  const STUDENT_LITE = true, STUDENT_KEEP = ["tasks", "profile"];
+  const isLite = () => STUDENT_LITE && current().role === "student";
   let page = "dashboard",
     timer = {
       taskId: null,
@@ -218,7 +221,7 @@
     document.querySelector(".app").classList.remove("hidden");
     document.querySelector(".side-note").textContent = "Tài khoản: " + profile.display_name + " · " + roleLabel(profile.role);
     buildNav();
-    page = "dashboard";
+    page = !isAdmin() && isLite() ? "tasks" : "dashboard";
     init();
     schedule(profile.id);
     render();
@@ -394,8 +397,9 @@
     if (isAdmin() || current().role === "teacher") items.push(dataItem);
     if (isAdmin() || current().role === "teacher") items.push(["discipline", "✎ Điểm nề nếp"]);
     items.push(["settings", "⚙ Cài đặt"]);
-    $("#nav").innerHTML = items.map(([p, l]) => `<button data-page="${p}">${l}</button>`).join("");
-    if (!isAdmin() && current().role === "student") { // cán bộ lớp (học sinh) cũng có trang Dữ liệu
+    if (!isAdmin() && isLite()) items.splice(0, items.length, ...items.filter(([p]) => STUDENT_KEEP.includes(p)));
+    $("#nav").innerHTML = items.map(([p, l]) => `<button data-page="${p}">${l}</button>`).join("") + (!isAdmin() && isLite() ? '<button data-nav-logout="1">⏻ Đăng xuất</button>' : "");
+    if (!isAdmin() && current().role === "student" && !isLite()) { // cán bộ lớp (học sinh) cũng có trang Dữ liệu
       const meId = current().id;
       A.sb.from("class_officer_roles").select("id,role,classes(name)").eq("user_id", meId).is("ended_at", null)
         .then((rAll) => { const r = { data: (rAll.data || []).filter((x) => x.role === "class_president" || x.role === "academic_vp") };
@@ -665,6 +669,7 @@
   }
   function render() {
     const u = current();
+    if (!isAdmin() && isLite() && !STUDENT_KEEP.includes(page)) page = "tasks";
     $$("#nav button").forEach((b) =>
       b.classList.toggle("active", b.dataset.page === page),
     );
@@ -2441,6 +2446,7 @@
     }
   }
   $("#nav").addEventListener("click", (e) => {
+    if (e.target.closest("[data-nav-logout]")) return logout();
     let b = e.target.closest("[data-page]");
     if (b) {
       page = b.dataset.page;
