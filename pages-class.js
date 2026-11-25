@@ -36,7 +36,7 @@ async function loadCtx(cls) {
   const isOfficer = direct.some((r) => r === 'class_president' || r === 'academic_vp');
   const lead = officers.some((o) => o.role === 'team_leader' && o.user_id === me);
   const perms = { adm, home, tch, roles, direct, isOfficer, stats: adm || home || tch || isOfficer, manageMembers: adm || home, manageTeams: adm || home || isOfficer, assignOfficers: adm || home,
-    createOT: adm || home || roles.length > 0, manageDuty: adm || home || has('labor_vp'), postAnn: adm || home || isOfficer,
+    createOT: adm || home || roles.length > 0, manageDuty: adm || home || has('labor_vp') || isOfficer, postAnn: adm || home || isOfficer,
     viewReports: adm || home || isOfficer, editReports: adm || home || isOfficer,
     assign: adm || isOfficer || tch, notify: adm || home || tch || isOfficer, delegate: adm || home || direct.length > 0, lead };
   return { cls, members, teams, tmembers, officers, delegs: delegs || [], names, codes, perms, me };

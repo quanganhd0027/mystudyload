@@ -1,0 +1,1 @@
+-- Đã áp dụng: policy duty_schedules_select_main_officer; create_duty_schedule/review_duty_submission cho phép class_president + academic_vp.
