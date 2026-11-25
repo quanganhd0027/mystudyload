@@ -52,6 +52,7 @@
   });
   let state = emptyState();
   // TẠM THỜI: học sinh chỉ thấy Nhiệm vụ + Hồ sơ (đặt false để bật lại các mục khác)
+  const HIDE_TODO_CARD = true; // TẠM THỜI: ẩn thẻ "việc cần làm" ở Tổng quan của học sinh (đặt false để bật lại)
   const STUDENT_LITE = true; let STUDENT_KEEP = ["tasks", "profile"], liteOfficer = false;
   const isLite = () => STUDENT_LITE && current().role === "student";
   let page = "dashboard",
@@ -718,8 +719,8 @@
  <div class="card span-4"><div class="stat-label">Nhiệm vụ chưa hoàn thành</div><div class="stat">${tasks.length}</div><div class="muted">${isTeacher() ? `Đang theo dõi ${tasks.length} nhiệm vụ đã giao` : `Còn ${tasks.length} nhiệm vụ chưa làm`}</div></div>
  <div class="card span-4"><div class="stat-label">Thời gian học đã xác nhận</div><div class="stat">${Math.round((mins / 60) * 10) / 10}h</div><div class="muted">Tổng thời gian đã xác nhận</div></div>
  <div class="card span-4"><div class="stat-label">Hạn nộp trong 24 giờ</div><div class="stat">${dueSoon.length}</div><div class="muted">Cần ưu tiên kiểm tra</div></div>
- <div class="card span-7">${isTeacher() ? `<div class="section-head"><h2>Nhiệm vụ cần chú ý</h2><button class="secondary small" data-goto="tasks">Xem tất cả</button></div>${risks.length ? '<div class="notice red">Có nhiệm vụ có nguy cơ trễ hạn.</div>' + risks.map(taskCard).join("") : '<div class="notice green">Chưa phát hiện nhiệm vụ thiếu sức chứa trước hạn trong dữ liệu hiện tại.</div>'}${tasks.filter((t) => !risks.includes(t)).slice(0, 3).map(taskCard).join("") || ""}` : todayTasksHtml(u, risks)}</div>
- <div class="card ${isTeacher() ? "span-12" : "span-5"}"><h2>${isTeacher() ? "Tiến độ từng học sinh" : "Khối lượng học trong 7 ngày tới"}</h2>${isTeacher() ? classProgress(state.classes.filter((c) => isAdmin() || c.teacherIds.includes(u.id))) : loadChart(u.id, 7)}<div class="footer-note">${isTeacher() ? "Số liệu dựa trên các nhiệm vụ thuộc lớp bạn phụ trách." : "Số phút học đã xếp lịch cho từng ngày. Chiều cao cột so với thời gian rảnh trong ngày; cột đỏ là vượt thời gian rảnh."}</div></div>
+ ${!isTeacher() && HIDE_TODO_CARD ? "" : `<div class="card span-7">${isTeacher() ? `<div class="section-head"><h2>Nhiệm vụ cần chú ý</h2><button class="secondary small" data-goto="tasks">Xem tất cả</button></div>${risks.length ? '<div class="notice red">Có nhiệm vụ có nguy cơ trễ hạn.</div>' + risks.map(taskCard).join("") : '<div class="notice green">Chưa phát hiện nhiệm vụ thiếu sức chứa trước hạn trong dữ liệu hiện tại.</div>'}${tasks.filter((t) => !risks.includes(t)).slice(0, 3).map(taskCard).join("") || ""}` : todayTasksHtml(u, risks)}</div>`}
+ <div class="card ${isTeacher() || HIDE_TODO_CARD ? "span-12" : "span-5"}"><h2>${isTeacher() ? "Tiến độ từng học sinh" : "Khối lượng học trong 7 ngày tới"}</h2>${isTeacher() ? classProgress(state.classes.filter((c) => isAdmin() || c.teacherIds.includes(u.id))) : loadChart(u.id, 7)}<div class="footer-note">${isTeacher() ? "Số liệu dựa trên các nhiệm vụ thuộc lớp bạn phụ trách." : "Số phút học đã xếp lịch cho từng ngày. Chiều cao cột so với thời gian rảnh trong ngày; cột đỏ là vượt thời gian rảnh."}</div></div>
  ${isTeacher() ? `<div class="card span-6"><h2>Nhiệm vụ sắp đến hạn</h2>${
    tasks
          .slice()
