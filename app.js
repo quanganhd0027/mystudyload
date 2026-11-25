@@ -400,8 +400,8 @@
     if (isAdmin() || current().role === "teacher") items.push(["discipline", "✎ Điểm nề nếp"]);
     items.push(["settings", "⚙ Cài đặt"]);
     if (!isAdmin() && isLite()) {
-      STUDENT_KEEP = liteOfficer ? ["dashboard", "tasks", "classmgmt", "profile"] : ["tasks", "profile"];
-      const lab = { dashboard: "◫ Tổng quan", tasks: "☷ Nhiệm vụ", classmgmt: "⚑ Quản lý lớp", profile: "☺ Hồ sơ" };
+      STUDENT_KEEP = liteOfficer ? ["tasks", "classmgmt", "profile"] : ["tasks", "profile"];
+      const lab = { tasks: "☷ Nhiệm vụ", classmgmt: "⚑ Quản lý lớp", profile: "☺ Hồ sơ" };
       items.splice(0, items.length, ...STUDENT_KEEP.map((p) => [p, lab[p]]));
       A.sb.from("class_officer_roles").select("role,classes(name)").eq("user_id", current().id).is("ended_at", null)
         .then((r) => { const rows = r.data || [];
@@ -885,7 +885,10 @@
     let tasks = isStudent()
       ? state.tasks.filter((t) => t.ownerId === u.id)
       : state.tasks.filter((t) => allowedTaskIds(u).has(t.id));
-    $("#content").innerHTML =
+    const overview = isStudent() && isLite()
+      ? `<div class="grid" style="margin-bottom:16px">${helloBanner(u)}<div class="card span-12 today-card">${todayHeroHtml(u, riskTasks(u.id))}</div><div class="card span-12"><h2>Khối lượng học trong 7 ngày tới</h2>${loadChart(u.id, 7)}<div class="footer-note">Số phút học đã xếp lịch cho từng ngày. Cột đỏ là vượt thời gian rảnh trong ngày.</div></div></div><h2 style="margin:8px 0 10px">Tất cả nhiệm vụ</h2>`
+      : "";
+    $("#content").innerHTML = overview +
       `<div class="section-head"><div class="row"><input id="taskSearch" placeholder="Tìm theo tên nhiệm vụ hoặc môn học…" style="width:240px"><select id="taskFilter" style="width:170px"><option value="all">Tất cả</option><option value="todo">Chưa bắt đầu</option><option value="doing">Đang làm</option><option value="done">Hoàn thành</option><option value="overdue">Quá hạn</option><option value="risk">Có nguy cơ trễ hạn</option></select><select id="taskClass" style="width:150px"><option value="all">Mọi lớp</option><option value="personal">Cá nhân</option>${state.classes.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><select id="taskSubject" style="width:150px"><option value="all">Mọi môn</option>${[...new Set(tasks.map((t) => t.subject).filter(Boolean))].sort().map((x) => `<option>${esc(x)}</option>`).join("")}</select><button class="secondary small" id="taskClear">Xóa bộ lọc</button></div></div><div id="taskList" class="stack"></div>`;
     function draw() {
       let q = $("#taskSearch").value.toLowerCase(),
