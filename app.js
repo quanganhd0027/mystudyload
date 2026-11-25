@@ -398,7 +398,7 @@
     if (isAdmin() || current().role === "teacher") items.push(["discipline", "✎ Điểm nề nếp"]);
     items.push(["settings", "⚙ Cài đặt"]);
     if (!isAdmin() && isLite()) items.splice(0, items.length, ...items.filter(([p]) => STUDENT_KEEP.includes(p)));
-    $("#nav").innerHTML = items.map(([p, l]) => `<button data-page="${p}">${l}</button>`).join("") + (!isAdmin() && isLite() ? '<button data-nav-logout="1">⏻ Đăng xuất</button>' : "");
+    $("#nav").innerHTML = items.map(([p, l]) => `<button data-page="${p}">${l}</button>`).join("");
     if (!isAdmin() && current().role === "student" && !isLite()) { // cán bộ lớp (học sinh) cũng có trang Dữ liệu
       const meId = current().id;
       A.sb.from("class_officer_roles").select("id,role,classes(name)").eq("user_id", meId).is("ended_at", null)
@@ -2446,7 +2446,6 @@
     }
   }
   $("#nav").addEventListener("click", (e) => {
-    if (e.target.closest("[data-nav-logout]")) return logout();
     let b = e.target.closest("[data-page]");
     if (b) {
       page = b.dataset.page;

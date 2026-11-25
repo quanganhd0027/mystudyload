@@ -22,7 +22,7 @@ SL.pages.profile = {
       <label>Lớp (khai báo)</label><input name="class_name" maxlength="40" value="${esc(p.class_name || '')}">
       <div id="profileMsg" class="notice red hidden" role="alert" style="margin-top:12px"></div>
       <div id="dupBox" class="hidden" style="margin-top:10px"><button type="button" class="secondary" id="dupBtn">Mã học sinh của bạn bị dùng? Báo cho quản trị viên</button></div>
-      <div class="row" style="margin-top:14px"><button type="submit" id="pfSave">Lưu hồ sơ</button></div></form>
+      <div class="row" style="margin-top:14px"><button type="submit" id="pfSave">Lưu hồ sơ</button><button type="button" class="secondary" data-action="logout">Đăng xuất</button></div></form>
       <p class="footer-note">Vai trò, email và tên tài khoản chỉ quản trị viên được đổi. "Lớp" ở đây chỉ để tham khảo; lớp chính thức do quản trị viên thêm bạn vào.</p></div>
       <div class="card span-6"><div class="section-head"><h2>Yêu cầu của tôi</h2><span id="reqBtn"></span></div><div id="reqList"></div></div></div>`;
     const codeIn = $('#pfCode'), phoneIn = $('#pfPhone'), saveBtn = $('#pfSave'), legacyBoth = !!(p.student_code && p.phone);
