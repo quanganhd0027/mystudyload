@@ -405,7 +405,7 @@
       items.splice(0, items.length, ...STUDENT_KEEP.map((p) => [p, lab[p]]));
       A.sb.from("class_officer_roles").select("role,classes(name)").eq("user_id", current().id).is("ended_at", null)
         .then((r) => { const rows = r.data || [];
-          myOfficer = [...new Set(rows.map((x) => (OFFICER_TITLE[x.role] || "Cán bộ lớp") + (x.classes && x.classes.name ? " · " + x.classes.name : "")))];
+          myOfficer = rows.length ? ["Cán bộ lớp"] : [];
           const sn = document.querySelector(".side-note"); if (sn && myOfficer.length) sn.textContent = "Tài khoản: " + current().name + " · " + myRoleText(world.profile || current());
           if (!liteOfficer && rows.some((x) => x.role === "class_president" || x.role === "academic_vp")) { liteOfficer = true; buildNav(); $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.page === page)); } }, () => {});
     }
