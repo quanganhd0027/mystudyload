@@ -312,3 +312,25 @@ html:not([data-theme=dark]) .side-note{border-top:1px solid var(--line);color:va
 #rkDetail{margin-top:var(--s3)}
 .rk-compact td,.rk-compact th{padding:6px var(--s3)}
 .rk-compact .av{vertical-align:middle}
+
+/* Tổng quan học sinh: thẻ "Hôm nay bạn cần học" */
+.today-card{border:1.5px solid var(--brand);background:#fff}
+.today-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.today-kicker{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--brand)}
+.today-title{margin:2px 0 0;font-size:24px}
+.today-sum{min-width:200px;text-align:right;font-size:14px}
+.today-sum b{font-size:18px}
+.today-sum span{display:block;font-size:12px;color:var(--muted,#8a6f62);margin-top:4px}
+.today-bar{height:8px;border-radius:99px;background:var(--brand2);margin-top:6px;overflow:hidden}
+.today-bar i{display:block;height:100%;background:var(--brand);border-radius:99px}
+.today-list{display:flex;flex-direction:column;gap:8px}
+.today-row{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--brand2)}
+.today-row.fin{opacity:.55;background:transparent}
+.today-row.fin .today-name{text-decoration:line-through}
+.today-time{width:76px;flex:none;font-weight:800;font-size:18px;color:var(--brand)}
+.today-subj{flex:none;padding:4px 12px;border-radius:99px;font-size:13px;font-weight:700;color:#fff;background:var(--sc,#ea580c)}
+.today-main{flex:1;min-width:0}
+.today-name{font-size:16px;font-weight:700;overflow-wrap:anywhere}
+.today-meta{font-size:13px;color:var(--muted,#8a6f62)}
+.today-empty{padding:18px;border-radius:12px;background:var(--brand2);font-size:15px}
+@media(max-width:700px){.today-row{flex-wrap:wrap}.today-time{width:auto}.today-sum{text-align:left}}
