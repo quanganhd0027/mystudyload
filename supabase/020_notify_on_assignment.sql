@@ -1,0 +1,1 @@
+-- Đã áp dụng: trigger trg_notify_assignment_created trên assignments → user_notifications (assignment).

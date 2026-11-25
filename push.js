@@ -72,6 +72,11 @@ function ensureStack() {
     + '.note-pop b{display:block;font-size:14px;margin-bottom:3px}.note-pop span{display:block;font-size:13px;line-height:1.45;color:#4a5670;white-space:pre-wrap;overflow-wrap:anywhere}'
     + '.note-pop button.nx{position:absolute;top:6px;right:6px;width:26px;height:26px;padding:0;border-radius:50%;background:#edf0f7;color:#3e4961;font-size:16px;line-height:1;font-weight:700}'
     + '.note-pop i{position:absolute;left:0;bottom:0;height:3px;background:var(--c);width:100%;transform-origin:left;animation:notebar ' + POPUP_MS + 'ms linear forwards}'
+    + '.note-pop.asg{width:min(400px,calc(100vw - 36px));justify-self:end;background:#fff7ed;border:2px solid #ea580c;border-left:8px solid #ea580c;padding:16px 42px 18px 16px;box-shadow:0 16px 48px #ea580c55,0 4px 14px #0003;animation:notein .35s ease-out,notepulse 1.6s ease-in-out 3}'
+    + '.note-pop.asg em{display:inline-block;font-style:normal;font-size:11px;font-weight:800;letter-spacing:.08em;color:#fff;background:#ea580c;border-radius:99px;padding:3px 10px;margin-bottom:8px}'
+    + '.note-pop.asg b{font-size:18px;color:#9a3412;margin-bottom:4px}.note-pop.asg span{font-size:14px;color:#7c2d12;font-weight:600}'
+    + '.note-pop.asg .go{display:block;margin-top:12px;width:100%;background:#ea580c;color:#fff;border:0;border-radius:10px;padding:9px;font-weight:700;font-size:14px;cursor:pointer}'
+    + '@keyframes notepulse{0%,100%{box-shadow:0 16px 48px #ea580c55,0 4px 14px #0003}50%{box-shadow:0 0 0 6px #ea580c44,0 16px 48px #ea580c88}}'
     + '@keyframes notein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@keyframes notebar{to{transform:scaleX(0)}}';
   document.head.appendChild(st);
   popStack = document.createElement('div'); popStack.id = 'notePop'; popStack.setAttribute('aria-live', 'polite'); document.body.appendChild(popStack);
@@ -79,11 +84,13 @@ function ensureStack() {
 }
 function showPopup(n) {
   const el = document.createElement('div'); el.className = 'note-pop'; el.style.setProperty('--c', COLORS[n.color] || COLORS.default); el.setAttribute('role', 'status');
-  el.innerHTML = `<b>${SL.esc(n.title)}</b>${n.body ? `<span>${SL.esc(n.body)}</span>` : ''}<button class="nx" type="button" aria-label="Tắt thông báo">×</button><i></i>`;
+  const asg = n.notification_type === 'assignment';
+  if (asg) el.classList.add('asg');
+  el.innerHTML = `${asg ? '<em>BÀI MỚI ĐƯỢC GIAO</em>' : ''}<b>${SL.esc(n.title)}</b>${n.body ? `<span>${SL.esc(n.body)}</span>` : ''}${asg ? '<button class="go" type="button">Xem nhiệm vụ</button>' : ''}<button class="nx" type="button" aria-label="Tắt thông báo">×</button>${asg ? '' : '<i></i>'}`;
   const close = () => { clearTimeout(t); el.remove(); };
-  const t = setTimeout(close, POPUP_MS);
+  const t = setTimeout(close, asg ? 180000 : POPUP_MS);
   el.querySelector('.nx').onclick = (e) => { e.stopPropagation(); close(); };
-  el.onclick = () => { close(); SL.go?.('notifications'); };
+  el.onclick = () => { close(); SL.go?.(asg ? 'tasks' : 'notifications'); };
   ensureStack().appendChild(el);
 }
 async function poll() {
