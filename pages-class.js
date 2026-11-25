@@ -35,7 +35,7 @@ async function loadCtx(cls) {
   const adm = SL.isAdmin(), home = cls.homeroomId === me, tch = cls.teacherIds.includes(me);
   const isOfficer = direct.some((r) => r === 'class_president' || r === 'academic_vp');
   const lead = officers.some((o) => o.role === 'team_leader' && o.user_id === me);
-  const perms = { adm, home, tch, roles, direct, isOfficer, stats: adm || home || tch || isOfficer, manageMembers: adm || home, manageTeams: adm || home || has('class_president'), assignOfficers: adm || home,
+  const perms = { adm, home, tch, roles, direct, isOfficer, stats: adm || home || tch || isOfficer, manageMembers: adm || home, manageTeams: adm || home || isOfficer, assignOfficers: adm || home,
     createOT: adm || home || roles.length > 0, manageDuty: adm || home || has('labor_vp'), postAnn: adm || home || isOfficer,
     viewReports: adm || home || isOfficer, editReports: adm || home || isOfficer,
     assign: adm || isOfficer || tch, notify: adm || home || tch || isOfficer, delegate: adm || home || direct.length > 0, lead };
@@ -136,7 +136,7 @@ TABS.teams = (el, c, refresh) => {
   const P = c.perms;
   el.innerHTML = `${P.manageTeams ? '<div class="toolbar"><button id="tnew">+ Tạo tổ</button></div>' : ''}${c.teams.length ? c.teams.map((t) => {
     const mem = c.tmembers.filter((m) => m.team_id === t.id), lead = c.officers.find((o) => o.role === 'team_leader' && o.team_id === t.id), isMem = mem.some((m) => m.student_id === c.me);
-    const canEdit = P.adm || P.home || P.roles.includes('class_president') || (lead && lead.user_id === c.me);
+    const canEdit = P.adm || P.home || P.isOfficer || (lead && lead.user_id === c.me);
     return `<div class="card" style="margin-bottom:12px"><div class="section-head"><h3>${esc(t.name)}</h3><span class="muted">Tổ trưởng: ${lead ? nm(c, lead.user_id) : '—'}</span></div>
       ${mem.length ? mem.map((m) => `<div class="ev-item"><span>${nm(c, m.student_id)}</span>${canEdit ? `<button class="small danger" data-rm="${t.id}|${m.student_id}">Gỡ</button>` : ''}</div>`).join('') : '<div class="muted">Tổ chưa có thành viên.</div>'}
       <div class="row" style="margin-top:8px">${canEdit ? `<button class="small secondary" data-add="${t.id}">+ Thêm thành viên</button>` : ''}${isMem || P.adm || P.home || canEdit ? `<button class="small secondary" data-upd="${t.id}">Báo cáo tuần của tổ</button>` : ''}</div></div>`; }).join('') : ui.empty('Lớp chưa có tổ nào.')}`;

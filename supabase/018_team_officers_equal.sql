@@ -1,0 +1,2 @@
+-- Đã áp dụng trên server: create_class_team / add_class_team_member / remove_class_team_member
+-- cho phép cả class_president và academic_vp (cán bộ lớp quyền như nhau).
