@@ -92,7 +92,8 @@
   const A = window.SLApi;
   const roleLabel = (r) => (r === "admin" ? "Quản trị viên" : r === "teacher" ? "Giáo viên" : "Học sinh");
   let myOfficer = []; // các lớp mà tài khoản học sinh này đang là cán bộ lớp
-  const myRoleText = (p) => (p && p.role === "student" && myOfficer.length ? "Cán bộ lớp · " + myOfficer.join(", ") : roleLabel(p && p.role));
+  const OFFICER_TITLE = { class_president: "Lớp trưởng", academic_vp: "Lớp phó học tập", labor_vp: "Lớp phó lao động", team_leader: "Tổ trưởng" };
+  const myRoleText = (p) => (p && p.role === "student" && myOfficer.length ? myOfficer.join(", ") : roleLabel(p && p.role));
   const world = { subjects: [], profile: null };
   let toastTimer = null;
   function showToast(s) {
@@ -402,8 +403,11 @@
       STUDENT_KEEP = liteOfficer ? ["dashboard", "tasks", "classmgmt", "profile"] : ["tasks", "profile"];
       const lab = { dashboard: "◫ Tổng quan", tasks: "☷ Nhiệm vụ", classmgmt: "⚑ Quản lý lớp", profile: "☺ Hồ sơ" };
       items.splice(0, items.length, ...STUDENT_KEEP.map((p) => [p, lab[p]]));
-      if (!liteOfficer) A.sb.from("class_officer_roles").select("role").eq("user_id", current().id).is("ended_at", null).in("role", ["class_president", "academic_vp"])
-        .then((r) => { if (r.data && r.data.length) { liteOfficer = true; buildNav(); $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.page === page)); } }, () => {});
+      A.sb.from("class_officer_roles").select("role,classes(name)").eq("user_id", current().id).is("ended_at", null)
+        .then((r) => { const rows = r.data || [];
+          myOfficer = [...new Set(rows.map((x) => (OFFICER_TITLE[x.role] || "Cán bộ lớp") + (x.classes && x.classes.name ? " · " + x.classes.name : "")))];
+          const sn = document.querySelector(".side-note"); if (sn && myOfficer.length) sn.textContent = "Tài khoản: " + current().name + " · " + myRoleText(world.profile || current());
+          if (!liteOfficer && rows.some((x) => x.role === "class_president" || x.role === "academic_vp")) { liteOfficer = true; buildNav(); $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.page === page)); } }, () => {});
     }
     $("#nav").innerHTML = items.map(([p, l]) => `<button data-page="${p}">${l}</button>`).join("");
     if (!isAdmin() && current().role === "student" && !isLite()) { // cán bộ lớp (học sinh) cũng có trang Dữ liệu
