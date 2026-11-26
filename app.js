@@ -1448,7 +1448,7 @@
     $("#modalRoot").innerHTML = "";
   }
   function taskForm(t = {}, ownerId = current().id) {
-    return `<form id="taskForm"><div class="form-grid"><div class="full"><label>Tên nhiệm vụ *</label><input name="title" required value="${esc(t.title || "")}"></div><div><label>Môn học *</label><div class="subj-wrap"><input name="subject" class="subj-pick" readonly autocomplete="off" placeholder="Bấm để chọn môn học" value="${esc(t.subject || "")}"></div></div><div><label>Loại nhiệm vụ</label><input name="kind" value="${esc(t.kind || "Nhiệm vụ")}"></div><div><label>Thời gian dự kiến (phút) *</label><input type="number" name="estimatedMinutes" min="1" required value="${t.estimatedMinutes ?? 60}"></div><div><label>Thời gian cần học thêm (phút) *</label><input type="number" name="remainingWorkMinutes" min="0" required value="${t.remainingWorkMinutes ?? t.estimatedMinutes ?? 60}"></div><div><label>Hạn nộp *</label><input type="datetime-local" name="dueAt" required value="${esc(t.dueAt ? new Date(new Date(t.dueAt).getTime() - new Date(t.dueAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "")}"></div><div><label>Ngày bắt đầu (tùy chọn)</label><input type="datetime-local" name="startAt" value="${esc(t.assignedAt ? new Date(new Date(t.assignedAt).getTime() - new Date(t.assignedAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "")}"></div><div><label>Ưu tiên</label><select name="priority"><option value="1" ${t.priority === 1 ? "selected" : ""}>Thường</option><option value="2" ${!t.priority || t.priority === 2 ? "selected" : ""}>Vừa</option><option value="3" ${t.priority === 3 ? "selected" : ""}>Cao</option></select></div><input type="hidden" name="ownerId" value="${ownerId}"></div></form>`;
+    return `<form id="taskForm"><div class="form-grid"><div class="full"><label>Tên nhiệm vụ *</label><input name="title" required value="${esc(t.title || "")}"></div><div><label>Môn học *</label><div class="subj-wrap"><input name="subject" class="subj-pick" readonly autocomplete="off" placeholder="Bấm để chọn môn học" value="${esc(t.subject || "")}"></div></div><div><label>Ngày bắt đầu (tùy chọn)</label><input type="datetime-local" name="startAt" value="${esc(t.assignedAt ? new Date(new Date(t.assignedAt).getTime() - new Date(t.assignedAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "")}"></div><div><label>Hạn nộp *</label><input type="datetime-local" name="dueAt" required value="${esc(t.dueAt ? new Date(new Date(t.dueAt).getTime() - new Date(t.dueAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "")}"></div><div><label>Ưu tiên</label><select name="priority"><option value="1" ${t.priority === 1 ? "selected" : ""}>Thường</option><option value="2" ${!t.priority || t.priority === 2 ? "selected" : ""}>Vừa</option><option value="3" ${t.priority === 3 ? "selected" : ""}>Cao</option></select></div><input type="hidden" name="ownerId" value="${ownerId}"></div></form>`;
   }
   function openTask(t) {
     if (t && t.assignmentId) return SL.editAssignment(t); // bài do lớp giao: sửa ở máy chủ, áp dụng cho cả lớp
@@ -1476,8 +1476,9 @@
         toast("Ngày bắt đầu phải trước hạn nộp.");
         return;
       }
-      let est = Number(data.estimatedMinutes),
-        rem = Number(data.remainingWorkMinutes);
+      data.kind = t ? t.kind : "Nhiệm vụ";
+      let est = t ? t.estimatedMinutes : 60,
+        rem = t ? t.remainingWorkMinutes : 60;
       if (est < 1 || rem < 0) {
         toast("Thời lượng không hợp lệ.");
         return;
