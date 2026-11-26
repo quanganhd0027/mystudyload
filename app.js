@@ -75,10 +75,14 @@
     window.SLApi.sync.markDirty(); // ghi lên Supabase (debounce); không còn lưu localStorage
   }
   function current() {
-    return (
-      state.users.find((u) => u.id === state.currentUserId) ||
-      state.users[0] || { id: "", name: "", role: "student", classIds: [] }
-    );
+    // Luôn ưu tiên hồ sơ của chính người đang đăng nhập. Nếu chưa tải kịp thì
+    // dùng world.profile (vai trò chắc chắn đúng) chứ KHÔNG lấy state.users[0]
+    // — lấy nhầm người khác sẽ khiến học sinh bị coi là giáo viên.
+    const me = state.users.find((u) => u.id === state.currentUserId);
+    if (me) return me;
+    const p = world.profile;
+    if (p) return { id: p.id, name: p.display_name || p.username || "", role: p.role || "student", classIds: [] };
+    return { id: "", name: "", role: "student", classIds: [] };
   }
   function isStudent(u = current()) {
     return u.role === "student";

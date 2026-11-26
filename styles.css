@@ -221,7 +221,7 @@ th{font-size:12px;text-transform:none;letter-spacing:0}
 .day-task-title{font-weight:600}.day-task-meta{font-size:12px;opacity:.9}
 .day-task .small{background:#fff;color:#222;border:0}
 .day-total{display:flex;justify-content:space-between;font-size:18px;background:#efe3b8;color:#3a3220;border-radius:14px;padding:14px;margin-top:6px}
-.daily-pop{position:fixed;top:16px;right:16px;z-index:9998;background:#fff;border:2px solid #222;border-radius:18px;padding:14px 16px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:300px}
+.daily-pop{position:fixed;bottom:84px;right:18px;z-index:9998;background:#fff;border:2px solid #222;border-radius:18px;padding:14px 16px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:300px}
 .daily-pop p{margin:6px 0 10px}.daily-pop-act{display:flex;gap:8px;justify-content:flex-end}
 
 /* =====================================================================
@@ -345,3 +345,7 @@ html:not([data-theme=dark]) .side-note{border-top:1px solid var(--line);color:va
 .subj-item i{width:10px;height:10px;border-radius:50%;flex:none}
 
 .warn-load{margin-bottom:12px}.warn-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+
+/* thông báo hằng ngày: góc dưới bên phải, nằm trên các nút nổi */
+.daily-pop{bottom:84px;top:auto;right:18px;left:auto;max-width:360px}
+@media(max-width:520px){.daily-pop{left:12px;right:12px;bottom:76px;max-width:none}}
