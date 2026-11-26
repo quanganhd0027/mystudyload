@@ -780,8 +780,9 @@
     const head = (sum) => `<div class="today-head"><div><div class="today-kicker">HÔM NAY · ${wd[d0.getDay()]}, ${d0.getDate()}/${d0.getMonth() + 1}</div><h2 class="today-title">Hôm nay bạn cần học</h2></div>${sum}</div>`;
     if (!list.length) return head("") + '<div class="today-empty">Hôm nay bạn không có bài nào cần học. Nghỉ ngơi nhé!</div>';
     const done = list.filter((e) => e.done || e.t.status === "done").length, total = list.reduce((a, e) => a + e.m, 0), pct = Math.round((done / list.length) * 100);
-    const sum = `<div class="today-sum"><b>${list.length} việc</b>${total && !HIDE_SCHEDULE ? " · " + fmtMin(total) : ""}<div class="today-bar"><i style="width:${pct}%"></i></div><span>Đã xong ${done}/${list.length}</span></div>`;
-    return head(sum) + (risks.length ? '<div class="notice red">Có nhiệm vụ có nguy cơ trễ hạn.</div>' : "") + '<div class="today-list">' + list.map((e) => {
+    const sum = `<div class="today-sum"><b>${done}/${list.length}</b><span>việc đã xong${total && !HIDE_SCHEDULE ? " · " + fmtMin(total) : ""}</span></div>`;
+    const bar = `<div class="today-bar"><i style="width:${pct}%"></i></div>`;
+    return head(sum) + bar + (risks.length ? '<div class="notice red">Có nhiệm vụ có nguy cơ trễ hạn.</div>' : "") + '<div class="today-list">' + list.map((e) => {
       const t = e.t, fin = e.done || t.status === "done", col = subjColor(t.subject);
       return `<div class="today-row${fin ? " fin" : ""}">${HIDE_SCHEDULE ? "" : `<div class="today-time">${e.m ? hm(e.first) : "Hạn " + hm(t.dueAt)}</div>`}<span class="today-subj" style="--sc:${col}">${esc(t.subject)}</span><div class="today-main"><div class="today-name">${fin ? "✓ " : ""}${esc(t.title)}</div><div class="today-meta">${HIDE_SCHEDULE ? "Hạn nộp: " + fmtDate(t.dueAt) : (e.m ? "Học " + fmtMin(e.m) : "Hạn nộp hôm nay") + (e.dueToday && e.m === 0 ? "" : " · hạn " + fmtDate(t.dueAt))}</div></div><div class="today-act">${fin ? '<span class="badge green">Xong</span>' : `<button class="small" data-action="study" data-id="${t.id}">Bắt đầu học</button>`}</div></div>`;
     }).join("") + "</div>";

@@ -349,3 +349,13 @@ html:not([data-theme=dark]) .side-note{border-top:1px solid var(--line);color:va
 /* thông báo hằng ngày: góc dưới bên phải, nằm trên các nút nổi */
 .daily-pop{bottom:84px;top:auto;right:18px;left:auto;max-width:360px}
 @media(max-width:520px){.daily-pop{left:12px;right:12px;bottom:76px;max-width:none}}
+
+/* thẻ "Hôm nay bạn cần học": tóm tắt gọn, thanh tiến độ chạy hết bề ngang */
+.today-head{margin-bottom:8px;align-items:center}
+.today-sum{min-width:0;display:flex;align-items:baseline;gap:8px;text-align:right}
+.today-sum b{font-size:22px;color:var(--brand)}
+.today-sum span{display:inline;margin:0;font-size:13px}
+.today-card .today-bar{margin:0 0 14px;height:8px}
+@media(max-width:700px){.today-sum{text-align:left}}
+/* nếu thẻ nhắc hằng ngày đang hiện thì đẩy chồng thông báo lên trên cho khỏi che nhau */
+body:has(.daily-pop) #notePop{bottom:232px}
