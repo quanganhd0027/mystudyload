@@ -77,9 +77,13 @@ function drawTab() {
     const tabs = [['overview', 'Tổng quan'], ['members', 'Thành viên'], ['teams', 'Tổ'], ['officers', 'Cán bộ lớp'], ['otasks', 'Nhiệm vụ cán bộ'], ['duty', 'Trực nhật'], ['ann', 'Thông báo lớp'], ...(P.notify ? [['notify', 'Gửi thông báo']] : []), ...(P.stats ? [['stats', 'Thống kê bài tập']] : []), ...(P.viewReports ? [['reports', 'Báo cáo tuần']] : []), ['deleg', 'Ủy quyền']];
     if (SL.isStudent() && !SL.isAdmin()) { const keep = ['members', 'teams', 'duty', 'notify', 'reports']; const kt = tabs.filter((t) => keep.includes(t[0])); tabs.length = 0; tabs.push(...kt); if (!tabs.find((t) => t[0] === K.tab)) K.tab = 'members'; } // lớp trưởng: chỉ 5 mục
     if (!tabs.find((t) => t[0] === K.tab)) K.tab = 'overview';
-    body.innerHTML = `<div class="subtabs">${tabs.map(([k, l]) => `<button data-k="${k}" class="${K.tab === k ? 'active' : ''}">${l}</button>`).join('')}</div><div id="ktab"></div>`;
+    body.innerHTML = `<div id="kwarn"></div><div class="subtabs">${tabs.map(([k, l]) => `<button data-k="${k}" class="${K.tab === k ? 'active' : ''}">${l}</button>`).join('')}</div><div id="ktab"></div>`;
     body.querySelectorAll('[data-k]').forEach((b) => (b.onclick = () => { K.tab = b.dataset.k; drawTab(); }));
     TABS[K.tab]($('#ktab'), ctx, drawTab);
+    if (P.adm || P.home || P.isOfficer) A.rpc('class_workload_alerts', { p_class_id: cls.id }).then((rows) => {
+      const w = $('#kwarn'); if (!w || !rows || !rows.length) return;
+      w.innerHTML = `<div class="notice red warn-load"><b>⚠ ${rows.length} bạn đang quá tải bài tập</b> — không đủ thời gian rảnh để học xong trước hạn:<div class="warn-list">${rows.map((r) => `<span class="badge red">${esc(r.display_name)} · ${r.overloaded_tasks} bài · thiếu ${SL.fmtMin ? SL.fmtMin(r.overload_minutes) : r.overload_minutes + ' phút'}</span>`).join(' ')}</div></div>`;
+    }, () => {});
   });
 }
 const TABS = {};

@@ -343,3 +343,5 @@ html:not([data-theme=dark]) .side-note{border-top:1px solid var(--line);color:va
 .subj-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;color:var(--ink,#2a1d14);border:0;border-radius:8px;padding:8px 10px;font-size:14px;font-weight:600;cursor:pointer}
 .subj-item:hover,.subj-item.on{background:var(--brand2);color:var(--brand)}
 .subj-item i{width:10px;height:10px;border-radius:50%;flex:none}
+
+.warn-load{margin-bottom:12px}.warn-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}

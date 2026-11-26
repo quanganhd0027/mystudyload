@@ -52,6 +52,7 @@
   });
   let state = emptyState();
   // TẠM THỜI: học sinh chỉ thấy Nhiệm vụ + Hồ sơ (đặt false để bật lại các mục khác)
+  const HIDE_SCHEDULE = true; // TẠM THỜI: ẩn giờ học đã sắp xếp, chỉ hiện biểu đồ khối lượng
   const HIDE_TODO_CARD = true; // thẻ "việc cần làm" kiểu cũ (đã thay bằng thẻ "Hôm nay bạn cần học")
   const STUDENT_LITE = true; let STUDENT_KEEP = ["tasks", "profile"], liteOfficer = false;
   const isLite = () => STUDENT_LITE && current().role === "student";
@@ -638,7 +639,19 @@
         t.status = "overdue";
         t.unscheduledMinutes = t.remainingWorkMinutes || 0;
       });
+    reportWorkload();
     save();
+  }
+  let lastWl = "", wlTimer = null;
+  function reportWorkload() {
+    clearTimeout(wlTimer);
+    wlTimer = setTimeout(() => { try {
+      const u = current(); if (!u || u.role !== "student") return;
+      const risky = state.tasks.filter((t) => t.ownerId === u.id && t.status !== "done" && (t.unscheduledMinutes || 0) > 0);
+      const mins = risky.reduce((n, t) => n + (t.unscheduledMinutes || 0), 0), key = u.id + ":" + mins + ":" + risky.length;
+      if (key === lastWl) return; lastWl = key;
+      A.rpc("report_my_workload", { p_overload_minutes: mins, p_tasks: risky.length }).catch(() => { lastWl = ""; });
+    } catch (e) { /* bỏ qua */ } }, 1500);
   }
   function capacityForDay(date, ownerId = current().id) {
     return rangesForDay(date, ownerId).reduce(
@@ -763,10 +776,10 @@
     const head = (sum) => `<div class="today-head"><div><div class="today-kicker">HÔM NAY · ${wd[d0.getDay()]}, ${d0.getDate()}/${d0.getMonth() + 1}</div><h2 class="today-title">Hôm nay bạn cần học</h2></div>${sum}</div>`;
     if (!list.length) return head("") + '<div class="today-empty">Hôm nay bạn không có bài nào cần học. Nghỉ ngơi nhé!</div>';
     const done = list.filter((e) => e.done || e.t.status === "done").length, total = list.reduce((a, e) => a + e.m, 0), pct = Math.round((done / list.length) * 100);
-    const sum = `<div class="today-sum"><b>${list.length} việc</b>${total ? " · " + fmtMin(total) : ""}<div class="today-bar"><i style="width:${pct}%"></i></div><span>Đã xong ${done}/${list.length}</span></div>`;
+    const sum = `<div class="today-sum"><b>${list.length} việc</b>${total && !HIDE_SCHEDULE ? " · " + fmtMin(total) : ""}<div class="today-bar"><i style="width:${pct}%"></i></div><span>Đã xong ${done}/${list.length}</span></div>`;
     return head(sum) + (risks.length ? '<div class="notice red">Có nhiệm vụ có nguy cơ trễ hạn.</div>' : "") + '<div class="today-list">' + list.map((e) => {
       const t = e.t, fin = e.done || t.status === "done", col = subjColor(t.subject);
-      return `<div class="today-row${fin ? " fin" : ""}"><div class="today-time">${e.m ? hm(e.first) : "Hạn " + hm(t.dueAt)}</div><span class="today-subj" style="--sc:${col}">${esc(t.subject)}</span><div class="today-main"><div class="today-name">${fin ? "✓ " : ""}${esc(t.title)}</div><div class="today-meta">${e.m ? "Học " + fmtMin(e.m) : "Hạn nộp hôm nay"}${e.dueToday && e.m === 0 ? "" : " · hạn " + fmtDate(t.dueAt)}</div></div><div class="today-act">${fin ? '<span class="badge green">Xong</span>' : `<button class="small" data-action="study" data-id="${t.id}">Bắt đầu học</button>`}</div></div>`;
+      return `<div class="today-row${fin ? " fin" : ""}">${HIDE_SCHEDULE ? "" : `<div class="today-time">${e.m ? hm(e.first) : "Hạn " + hm(t.dueAt)}</div>`}<span class="today-subj" style="--sc:${col}">${esc(t.subject)}</span><div class="today-main"><div class="today-name">${fin ? "✓ " : ""}${esc(t.title)}</div><div class="today-meta">${HIDE_SCHEDULE ? "Hạn nộp: " + fmtDate(t.dueAt) : (e.m ? "Học " + fmtMin(e.m) : "Hạn nộp hôm nay") + (e.dueToday && e.m === 0 ? "" : " · hạn " + fmtDate(t.dueAt))}</div></div><div class="today-act">${fin ? '<span class="badge green">Xong</span>' : `<button class="small" data-action="study" data-id="${t.id}">Bắt đầu học</button>`}</div></div>`;
     }).join("") + "</div>";
   }
   function todayTasksHtml(u, risks) {
@@ -2571,7 +2584,7 @@
       }
     }
   }
-  window.SL = { subjectRank, $, $$, esc, toast: showToast, modal, closeModal, fmtDate, localDay, ui, roleLabel, myRoleText,
+  window.SL = { fmtMin, subjectRank, $, $$, esc, toast: showToast, modal, closeModal, fmtDate, localDay, ui, roleLabel, myRoleText,
     pages: {}, current, isAdmin, isTeacher, isStudent, state: () => state, subjects: () => world.subjects, profile: () => world.profile,
     render, reload: reloadWorld, go: (p) => { page = p; render(); }, refreshProfile: (pr) => { world.profile = pr; } };
   netBanner();
