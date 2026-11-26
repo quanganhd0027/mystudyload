@@ -389,7 +389,9 @@
       items.splice(0, items.length, ...items.filter(([p]) => !hide.has(p)));
       items.splice(1, 0, ["users", "☰ Người dùng"], ["adminclasses", "⌂ Lớp học (Admin)"], ["subjects", "✎ Môn học"], ["audit", "⛨ Nhật ký kiểm toán"], ["switchacct", "⇄ Đổi tài khoản"]);
       const qa = $("#quickAdd"); if (qa) qa.classList.add("hidden");
-    } else { const qa = $("#quickAdd"); if (qa) { qa.classList.remove("hidden"); qa.textContent = isStudent() ? "+ Nhiệm vụ" : "+ Giao bài"; } }
+    } else { const qa = $("#quickAdd"); if (qa) { // học sinh không tự tạo nhiệm vụ nữa: chỉ giáo viên mới có nút này
+        if (isStudent()) qa.classList.add("hidden");
+        else { qa.classList.remove("hidden"); qa.textContent = "+ Giao bài"; } } }
     // Rút gọn menu: Thư viện chỉ là bản demo → ẩn với mọi vai trò (mã trang vẫn còn)
     { const hideAll = new Set();
       if (!isAdmin() && current().role === "student") {
