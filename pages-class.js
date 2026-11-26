@@ -75,7 +75,7 @@ function drawTab() {
   ui.load(body, () => loadCtx(cls), (ctx) => {
     const P = ctx.perms;
     const tabs = [['overview', 'Tổng quan'], ['members', 'Thành viên'], ['teams', 'Tổ'], ['officers', 'Cán bộ lớp'], ['otasks', 'Nhiệm vụ cán bộ'], ['duty', 'Trực nhật'], ['ann', 'Thông báo lớp'], ...(P.notify ? [['notify', 'Gửi thông báo']] : []), ...(P.stats ? [['stats', 'Thống kê bài tập']] : []), ...(P.viewReports ? [['reports', 'Báo cáo tuần']] : []), ['deleg', 'Ủy quyền']];
-    if (SL.isStudent() && !SL.isAdmin()) { const keep = ['members', 'teams', 'duty', 'notify', 'reports']; const kt = tabs.filter((t) => keep.includes(t[0])); tabs.length = 0; tabs.push(...kt); if (!tabs.find((t) => t[0] === K.tab)) K.tab = 'members'; } // lớp trưởng: chỉ 5 mục
+    if (!SL.isAdmin()) { const keep = ['members', 'teams', 'duty', 'notify', 'reports']; const kt = tabs.filter((t) => keep.includes(t[0])); tabs.length = 0; tabs.push(...kt); if (!tabs.find((t) => t[0] === K.tab)) K.tab = 'members'; } // lớp trưởng: chỉ 5 mục
     if (!tabs.find((t) => t[0] === K.tab)) K.tab = 'overview';
     body.innerHTML = `<div id="kwarn"></div><div class="subtabs">${tabs.map(([k, l]) => `<button data-k="${k}" class="${K.tab === k ? 'active' : ''}">${l}</button>`).join('')}</div><div id="ktab"></div>`;
     body.querySelectorAll('[data-k]').forEach((b) => (b.onclick = () => { K.tab = b.dataset.k; drawTab(); }));

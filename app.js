@@ -55,7 +55,7 @@
   const HIDE_SCHEDULE = true; // TẠM THỜI: ẩn giờ học đã sắp xếp, chỉ hiện biểu đồ khối lượng
   const HIDE_TODO_CARD = true; // thẻ "việc cần làm" kiểu cũ (đã thay bằng thẻ "Hôm nay bạn cần học")
   const STUDENT_LITE = true; let STUDENT_KEEP = ["tasks", "profile"], liteOfficer = false;
-  const isLite = () => STUDENT_LITE && current().role === "student";
+  const isLite = () => STUDENT_LITE && (current().role === "student" || current().role === "teacher");
   let page = "dashboard",
     timer = {
       taskId: null,
@@ -401,10 +401,10 @@
     if (isAdmin() || current().role === "teacher") items.push(["discipline", "✎ Điểm nề nếp"]);
     items.push(["settings", "⚙ Cài đặt"]);
     if (!isAdmin() && isLite()) {
-      STUDENT_KEEP = liteOfficer ? ["tasks", "classmgmt", "profile"] : ["tasks", "profile"];
+      STUDENT_KEEP = liteOfficer || current().role === "teacher" ? ["tasks", "classmgmt", "profile"] : ["tasks", "profile"];
       const lab = { tasks: "☷ Nhiệm vụ", classmgmt: "⚑ Quản lý lớp", profile: "☺ Hồ sơ" };
       items.splice(0, items.length, ...STUDENT_KEEP.map((p) => [p, lab[p]]));
-      A.sb.from("class_officer_roles").select("role,classes(name)").eq("user_id", current().id).is("ended_at", null)
+      if (current().role === "student") A.sb.from("class_officer_roles").select("role,classes(name)").eq("user_id", current().id).is("ended_at", null)
         .then((r) => { const rows = r.data || [];
           myOfficer = rows.length ? ["Cán bộ lớp"] : [];
           const sn = document.querySelector(".side-note"); if (sn && myOfficer.length) sn.textContent = "Tài khoản: " + current().name + " · " + myRoleText(world.profile || current());
@@ -898,8 +898,8 @@
     let tasks = isStudent()
       ? state.tasks.filter((t) => t.ownerId === u.id)
       : state.tasks.filter((t) => allowedTaskIds(u).has(t.id));
-    const overview = isStudent() && isLite()
-      ? `<div class="grid" style="margin-bottom:16px">${helloBanner(u)}<div class="card span-12 today-card">${todayHeroHtml(u, riskTasks(u.id))}</div><div class="card span-12"><h2>Khối lượng học trong 7 ngày tới</h2>${loadChart(u.id, 7)}<div class="footer-note">Số phút học đã xếp lịch cho từng ngày. Cột đỏ là vượt thời gian rảnh trong ngày.</div></div></div><h2 style="margin:8px 0 10px">Tất cả nhiệm vụ</h2>`
+    const overview = isLite()
+      ? `<div class="grid" style="margin-bottom:16px">${isStudent() ? helloBanner(u) + `<div class="card span-12 today-card">${todayHeroHtml(u, riskTasks(u.id))}</div>` : ""}<div class="card span-12"><h2>Lịch khối lượng công việc</h2>${calLoadHtml(u, calWeeks())}</div></div><h2 style="margin:8px 0 10px">${isStudent() ? "Tất cả nhiệm vụ" : "Nhiệm vụ đã giao"}</h2>`
       : "";
     $("#content").innerHTML = overview +
       `<div class="section-head"><div class="row"><input id="taskSearch" placeholder="Tìm theo tên nhiệm vụ hoặc môn học…" style="width:240px"><select id="taskFilter" style="width:170px"><option value="all">Tất cả</option><option value="todo">Chưa bắt đầu</option><option value="doing">Đang làm</option><option value="done">Hoàn thành</option><option value="overdue">Quá hạn</option><option value="risk">Có nguy cơ trễ hạn</option></select><select id="taskClass" style="width:150px"><option value="all">Mọi lớp</option><option value="personal">Cá nhân</option>${state.classes.map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><select id="taskSubject" style="width:150px"><option value="all">Mọi môn</option>${[...new Set(tasks.map((t) => t.subject).filter(Boolean))].sort().map((x) => `<option>${esc(x)}</option>`).join("")}</select><button class="secondary small" id="taskClear">Xóa bộ lọc</button></div></div><div id="taskList" class="stack"></div>`;
