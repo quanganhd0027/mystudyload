@@ -1,0 +1,1 @@
+-- Đã áp dụng: admin_require_password_change(uuid[]), admin_password_change_pending(uuid).
