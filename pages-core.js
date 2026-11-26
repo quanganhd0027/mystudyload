@@ -130,7 +130,7 @@ SL.assignToClass = async function (classId, className) {
   if (cls.studentIds && !cls.studentIds.length) return SL.toast('Lớp chưa có học sinh nào để giao bài.');
   ui.form(`Giao nhiệm vụ cho lớp ${esc(cls.name)}`, `<form><div class="form-grid">
     <div class="full"><label>Tên nhiệm vụ *</label><input name="title" required maxlength="150"></div>
-    <div class="full"><label>Môn học * (tick vào các môn)</label><div class="subj-ticks">${ctx.subjects.map((s, i) => `<label class="checkrow"><input type="checkbox" name="subj" value="${s.id}" ${ctx.subjects.length === 1 ? 'checked' : ''}> ${esc(s.name)}</label>`).join('')}</div></div>
+    <div class="full"><label>Môn học * (tick vào các môn)</label><div class="subj-ticks">${[...ctx.subjects].sort((x, y) => SL.subjectRank(x.name) - SL.subjectRank(y.name)).map((s, i) => `<label class="checkrow"><input type="checkbox" name="subj" value="${s.id}" ${ctx.subjects.length === 1 ? 'checked' : ''}> ${esc(s.name)}</label>`).join('')}</div></div>
     <div><label>Ngày giao bài *</label><input type="datetime-local" name="start" required value="${toLocalInput(new Date())}"></div>
     <div><label>Hạn nộp *</label><input type="datetime-local" name="due" required></div></div></form>`, 'Giao bài',
     async (root) => {

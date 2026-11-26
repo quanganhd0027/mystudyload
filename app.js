@@ -959,6 +959,25 @@
   let calTab = "todo", calDay = null;
   const SUBJ_FIXED = { toan: "#ef4444", van: "#eab308", "ngu van": "#eab308", anh: "#84cc16", "tieng anh": "#84cc16", dia: "#0ea5e9", "dia li": "#0ea5e9", "dia ly": "#0ea5e9", su: "#f472b6", "lich su": "#f472b6", ly: "#6366f1", "vat li": "#6366f1", "vat ly": "#6366f1", hoa: "#14b8a6", "hoa hoc": "#14b8a6", sinh: "#22c55e", "sinh hoc": "#22c55e", tin: "#8b5cf6", "tin hoc": "#8b5cf6", gdcd: "#f97316" };
   const SUBJ_EXTRA = ["#3b4fd1", "#f97316", "#06b6d4", "#a855f7", "#64748b", "#d946ef", "#0d9488", "#b45309"];
+  // Danh sách môn học: 10 môn chính ở đầu, các môn còn lại theo sau
+  const SUBJECT_FIRST = ["Toán Học", "Ngữ Văn", "Tiếng Anh", "Lịch Sử", "Địa Lí", "Vật Lí", "Hoá Học", "Sinh học", "Giáo Dục Công Dân", "Tin học"];
+  const SUBJECT_REST = ["Chuyên đề địa lí", "Chuyên đề lịch sử", "Chuyên đề ngữ văn", "Giáo dục địa phương", "PDP", "Robotic", "Thể Dục", "Tiếng Anh Nước Ngoài", "Vovinam", "Well Being"];
+  const SUBJECT_LIST = [...SUBJECT_FIRST, ...SUBJECT_REST];
+  const subjectRank = (name) => { const i = SUBJECT_LIST.findIndex((x) => x.toLowerCase() === String(name || "").toLowerCase()); return i < 0 ? 999 : i; };
+  document.addEventListener("click", (e) => {
+    const inp = e.target.closest && e.target.closest("input.subj-pick"), old = document.querySelector(".subj-panel");
+    if (old && !(e.target.closest && e.target.closest(".subj-panel"))) old.remove();
+    if (e.target.closest && e.target.closest(".subj-item")) {
+      const b = e.target.closest(".subj-item"), w = b.closest(".subj-wrap"), i = w.querySelector("input.subj-pick");
+      i.value = b.dataset.s; b.closest(".subj-panel").remove(); return;
+    }
+    if (!inp || (old && old.parentNode === inp.parentNode)) return;
+    const cur = inp.value, panel = document.createElement("div");
+    panel.className = "subj-panel";
+    const item = (n) => `<button type="button" class="subj-item${n === cur ? " on" : ""}" data-s="${esc(n)}"><i style="background:${subjColor(n)}"></i>${esc(n)}</button>`;
+    panel.innerHTML = '<div class="subj-grp">Môn chính</div>' + SUBJECT_FIRST.map(item).join("") + '<div class="subj-grp">Môn khác</div>' + SUBJECT_REST.map(item).join("");
+    inp.parentNode.appendChild(panel);
+  });
   function subjColor(name) {
     let k = String(name || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/g, "d").trim();
     if (SUBJ_FIXED[k]) return SUBJ_FIXED[k];
@@ -1429,7 +1448,7 @@
     $("#modalRoot").innerHTML = "";
   }
   function taskForm(t = {}, ownerId = current().id) {
-    return `<form id="taskForm"><div class="form-grid"><div class="full"><label>Tên nhiệm vụ *</label><input name="title" required value="${esc(t.title || "")}"></div><div><label>Môn học *</label><input name="subject" required value="${esc(t.subject || "")}"></div><div><label>Loại nhiệm vụ</label><input name="kind" value="${esc(t.kind || "Nhiệm vụ")}"></div><div><label>Thời gian dự kiến (phút) *</label><input type="number" name="estimatedMinutes" min="1" required value="${t.estimatedMinutes ?? 60}"></div><div><label>Thời gian cần học thêm (phút) *</label><input type="number" name="remainingWorkMinutes" min="0" required value="${t.remainingWorkMinutes ?? t.estimatedMinutes ?? 60}"></div><div><label>Hạn nộp *</label><input type="datetime-local" name="dueAt" required value="${esc(t.dueAt ? new Date(new Date(t.dueAt).getTime() - new Date(t.dueAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "")}"></div><div><label>Ngày bắt đầu (tùy chọn)</label><input type="datetime-local" name="startAt" value="${esc(t.assignedAt ? new Date(new Date(t.assignedAt).getTime() - new Date(t.assignedAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "")}"></div><div><label>Ưu tiên</label><select name="priority"><option value="1" ${t.priority === 1 ? "selected" : ""}>Thường</option><option value="2" ${!t.priority || t.priority === 2 ? "selected" : ""}>Vừa</option><option value="3" ${t.priority === 3 ? "selected" : ""}>Cao</option></select></div><input type="hidden" name="ownerId" value="${ownerId}"></div></form>`;
+    return `<form id="taskForm"><div class="form-grid"><div class="full"><label>Tên nhiệm vụ *</label><input name="title" required value="${esc(t.title || "")}"></div><div><label>Môn học *</label><div class="subj-wrap"><input name="subject" class="subj-pick" readonly autocomplete="off" placeholder="Bấm để chọn môn học" value="${esc(t.subject || "")}"></div></div><div><label>Loại nhiệm vụ</label><input name="kind" value="${esc(t.kind || "Nhiệm vụ")}"></div><div><label>Thời gian dự kiến (phút) *</label><input type="number" name="estimatedMinutes" min="1" required value="${t.estimatedMinutes ?? 60}"></div><div><label>Thời gian cần học thêm (phút) *</label><input type="number" name="remainingWorkMinutes" min="0" required value="${t.remainingWorkMinutes ?? t.estimatedMinutes ?? 60}"></div><div><label>Hạn nộp *</label><input type="datetime-local" name="dueAt" required value="${esc(t.dueAt ? new Date(new Date(t.dueAt).getTime() - new Date(t.dueAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "")}"></div><div><label>Ngày bắt đầu (tùy chọn)</label><input type="datetime-local" name="startAt" value="${esc(t.assignedAt ? new Date(new Date(t.assignedAt).getTime() - new Date(t.assignedAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "")}"></div><div><label>Ưu tiên</label><select name="priority"><option value="1" ${t.priority === 1 ? "selected" : ""}>Thường</option><option value="2" ${!t.priority || t.priority === 2 ? "selected" : ""}>Vừa</option><option value="3" ${t.priority === 3 ? "selected" : ""}>Cao</option></select></div><input type="hidden" name="ownerId" value="${ownerId}"></div></form>`;
   }
   function openTask(t) {
     if (t && t.assignmentId) return SL.editAssignment(t); // bài do lớp giao: sửa ở máy chủ, áp dụng cho cả lớp
@@ -1440,6 +1459,7 @@
     $("#modalSubmit").onclick = () => {
       let f = $("#taskForm");
       if (!f.reportValidity()) return;
+      if (!f.elements.subject.value.trim()) { toast("Hãy chọn môn học."); return; }
       let d = new FormData(f),
         data = Object.fromEntries(d.entries());
       let due = new Date(data.dueAt);
@@ -2550,7 +2570,7 @@
       }
     }
   }
-  window.SL = { $, $$, esc, toast: showToast, modal, closeModal, fmtDate, localDay, ui, roleLabel, myRoleText,
+  window.SL = { subjectRank, $, $$, esc, toast: showToast, modal, closeModal, fmtDate, localDay, ui, roleLabel, myRoleText,
     pages: {}, current, isAdmin, isTeacher, isStudent, state: () => state, subjects: () => world.subjects, profile: () => world.profile,
     render, reload: reloadWorld, go: (p) => { page = p; render(); }, refreshProfile: (pr) => { world.profile = pr; } };
   netBanner();
