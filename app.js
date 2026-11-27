@@ -380,7 +380,15 @@
     c.textContent = status === "saving" ? "Đang lưu…" : status === "saved" ? "✓ Đã lưu" : status === "error" ? "⚠ Lỗi lưu — bấm để thử lại" : "";
     c.title = err ? err.message : "";
   }
+  // Nhãn #s.NN chỉ hiện với quản trị viên, kể cả khi admin đang đổi sang tài khoản khác
+  function updateVerTag() {
+    const el = document.getElementById("verTag"); if (!el) return;
+    let asAdmin = false;
+    try { asAdmin = isAdmin() || !!localStorage.getItem("sl_admin_return"); } catch (e) { asAdmin = false; }
+    el.style.display = asAdmin ? "" : "none";
+  }
   function buildNav() {
+    updateVerTag();
     const items = [["dashboard", "◫ Tổng quan"], ["tasks", "☷ Nhiệm vụ"], ["calendar", "▦ Lịch cá nhân"], ["classes", "♧ Lớp học & dự án"],
       ["classmgmt", "⚑ Quản lý lớp"], ["reports", "◷ Báo cáo"], ["ranking", "★ Xếp hạng"], ["notifications", "✉ Thông báo"], ["profile", "☺ Hồ sơ"]];
     if (isAdmin()) {
