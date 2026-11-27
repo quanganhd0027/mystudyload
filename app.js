@@ -54,7 +54,7 @@
   // TẠM THỜI: học sinh chỉ thấy Nhiệm vụ + Hồ sơ (đặt false để bật lại các mục khác)
   const HIDE_SCHEDULE = true; // TẠM THỜI: ẩn giờ học đã sắp xếp, chỉ hiện biểu đồ khối lượng
   const HIDE_TODO_CARD = true; // thẻ "việc cần làm" kiểu cũ (đã thay bằng thẻ "Hôm nay bạn cần học")
-  const STUDENT_LITE = true; let STUDENT_KEEP = ["tasks", "profile"], liteOfficer = false;
+  const STUDENT_LITE = true; let STUDENT_KEEP = ["tasks", "profile"], liteOfficer = false, officerClasses = [];
   const isLite = () => STUDENT_LITE && (current().role === "student" || current().role === "teacher");
   let page = "dashboard",
     timer = {
@@ -410,9 +410,10 @@
       STUDENT_KEEP = liteOfficer || current().role === "teacher" ? ["tasks", "classmgmt", "profile"] : ["tasks", "profile"];
       const lab = { tasks: "☷ Nhiệm vụ", classmgmt: "⚑ Quản lý lớp", profile: "☺ Hồ sơ" };
       items.splice(0, items.length, ...STUDENT_KEEP.map((p) => [p, lab[p]]));
-      if (current().role === "student") A.sb.from("class_officer_roles").select("role,classes(name)").eq("user_id", current().id).is("ended_at", null)
+      if (current().role === "student") A.sb.from("class_officer_roles").select("role,class_id,classes(name)").eq("user_id", current().id).is("ended_at", null)
         .then((r) => { const rows = r.data || [];
           myOfficer = rows.length ? ["Cán bộ lớp"] : [];
+          officerClasses = [...new Map(rows.filter((x) => x.role === "class_president" || x.role === "academic_vp" ).map((x) => [x.class_id, { id: x.class_id, name: (x.classes && x.classes.name) || "lớp của bạn" }])).values()];
           const sn = document.querySelector(".side-note"); if (sn && myOfficer.length) sn.textContent = "Tài khoản: " + current().name + " · " + myRoleText(world.profile || current());
           if (!liteOfficer && rows.some((x) => x.role === "class_president" || x.role === "academic_vp")) { liteOfficer = true; buildNav(); $$("#nav button").forEach((b) => b.classList.toggle("active", b.dataset.page === page)); } }, () => {});
     }
@@ -2526,7 +2527,10 @@
   });
   $("#quickAdd").onclick = () => {
     if (isStudent() && !liteOfficer) return; // học sinh thường: không có nút này
-    SL.assignPick(); // cán bộ lớp và giáo viên: chọn lớp rồi giao
+    // cán bộ lớp: giao thẳng cho lớp mình phụ trách, không phải chọn lớp
+    if (isStudent() && officerClasses.length === 1) return SL.assignToClass(officerClasses[0].id, officerClasses[0].name);
+    if (isStudent() && officerClasses.length > 1) return SL.assignPick(officerClasses);
+    SL.assignPick(); // giáo viên: chọn trong các lớp dạy
   };
   $("#profileButton").addEventListener("click", () => { page = "profile"; render(); });
   $("#saveChip").addEventListener("click", () => { if (A.sync.status === "error") A.sync.retry(); });

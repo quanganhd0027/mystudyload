@@ -87,8 +87,10 @@ SL.claimClass = async function (done) {
     async (root) => { const id = root.querySelector('[name=cid]:checked')?.value; if (!id) throw new Error('Hãy chọn một lớp.'); await A.rpc('teacher_claim_class', { p_class_id: id }); await SL.reload(); if (done) done(); }, 'Đã nhận lớp. Bạn là giáo viên chủ nhiệm.');
 };
 /* Giáo viên giao bài cho BẤT KỲ lớp nào: chọn lớp rồi giao */
-SL.assignPick = async function () {
-  let rows; try { rows = await A.run(A.sb.from('classes').select('id,name,academic_year').order('name')); } catch (e) { return SL.toast(A.toApiError(e).message); }
+SL.assignPick = async function (only) {
+  let rows;
+  if (only && only.length) rows = only.map((c) => ({ id: c.id, name: c.name, academic_year: null }));
+  else { try { rows = await A.run(A.sb.from('classes').select('id,name,academic_year').order('name')); } catch (e) { return SL.toast(A.toApiError(e).message); } }
   if (!rows.length) return SL.toast('Chưa có lớp nào trong hệ thống.');
   ui.form('Giao bài cho lớp', `<form><label>Chọn lớp *</label><select name="cid">${rows.map((c) => `<option value="${c.id}">${esc(c.name)}${c.academic_year ? ' · ' + esc(c.academic_year) : ''}</option>`).join('')}</select></form>`, 'Tiếp tục',
     async (root) => { const id = root.querySelector('[name=cid]').value, nm = rows.find((c) => c.id === id)?.name; setTimeout(() => SL.assignToClass(id, nm), 50); }, '');
