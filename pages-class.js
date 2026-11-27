@@ -428,11 +428,31 @@ SL.pages.datahub = {
           <div class="card span-6"><h2>Bài về nhà</h2>
             ${bar('Quá hạn', hw.overdue, hwMax, 'var(--red)', `${hw.overdue} học sinh`)}${bar('Làm đủ bài', hw.all_done, hwMax, 'var(--green)', `${hw.all_done} học sinh`)}${bar('Đang làm', hw.in_progress, hwMax, 'var(--amber)', `${hw.in_progress} học sinh`)}${bar('Chưa có bài', hw.no_assignments, hwMax, 'var(--line)', `${hw.no_assignments} học sinh`)}</div>
           <div class="card span-12"><div class="section-head"><h2>Chi tiết từng học sinh</h2><div><button class="small" id="dhx1">Xuất CSV học sinh</button> <button class="small secondary" id="dhx2">Xuất CSV theo ngày</button></div></div>
-            ${d.per_student.length ? `<div class="table-wrap"><table><thead><tr><th>Học sinh</th><th>Mã HS</th><th>Học tuần này (phút)</th><th>Còn lại (phút)</th><th>Bài giao</th><th>Đã xong</th><th>Quá hạn</th><th></th></tr></thead><tbody>${d.per_student.map((s) => `<tr><td>${esc(s.name)}</td><td>${esc(s.code || '')}</td><td>${s.week_minutes}</td><td>${s.remaining_minutes}</td><td>${s.assigned}</td><td>${s.done}</td><td>${s.overdue}</td><td>${s.overloaded ? '<span class="badge red">Quá tải</span>' : ''}</td></tr>`).join('')}</tbody></table></div>` : ui.empty('Chưa có học sinh nào.')}</div></div>`;
+            ${d.per_student.length ? `<div class="table-wrap"><table><thead><tr><th>Học sinh</th><th>Mã HS</th><th>Học tuần này (phút)</th><th>Còn lại (phút)</th><th>Bài giao</th><th>Đã xong</th><th>Quá hạn</th><th></th></tr></thead><tbody>${d.per_student.map((s) => `<tr><td>${esc(s.name)}</td><td>${esc(s.code || '')}</td><td>${s.week_minutes}</td><td>${s.remaining_minutes}</td><td>${s.assigned}</td><td>${s.done}</td><td>${s.overdue}</td><td>${s.overloaded ? '<span class="badge red">Quá tải</span>' : ''}</td></tr>`).join('')}</tbody></table></div>` : ui.empty('Chưa có học sinh nào.')}</div><div class="card span-12 dz"><div class="section-head"><h2>Đặt lại số liệu thống kê</h2></div>
+            <p class="muted">Đưa về 0: giờ đã học, tiến độ bài (về <b>chưa làm</b>) và trạng thái quá tải của <b>${SL.isAdmin() && !DH.classId ? 'toàn hệ thống' : esc(classes.find((c) => c.id === DH.classId)?.name || '')}</b>. Bài đã giao, lớp, môn học và tài khoản giữ nguyên.</p>
+            <p class="muted">Không khôi phục lại được.</p>
+            <button class="small danger" id="dhreset">Đặt lại số liệu về 0</button></div></div>`;
         const cname = (classes.find((c) => c.id === DH.classId)?.name || 'he-thong').replace(/[^\w\-]+/g, '_'), tag = `${cname}-${ws}`;
         const exp = async (kind, rows, file) => { try { await A.rpc('log_data_export', { p_class_id: DH.classId || null, p_kind: kind }); } catch (e) { return SL.toast(A.toApiError(e).message); } downloadCsv(file, csvOf(rows)); };
         $('#dhx1').onclick = () => exp('students', [['Học sinh', 'Mã HS', 'Học tuần này (phút)', 'Còn lại (phút)', 'Bài giao', 'Đã xong', 'Quá hạn', 'Quá tải'], ...d.per_student.map((s) => [s.name, s.code, s.week_minutes, s.remaining_minutes, s.assigned, s.done, s.overdue, s.overloaded ? 'có' : 'không'])], `du-lieu-hoc-sinh-${tag}.csv`);
         $('#dhx2').onclick = () => exp('daily', [['Ngày', 'Phút học', 'Số học sinh có học'], ...d.daily.map((x) => [x.day, x.minutes, x.active])], `du-lieu-theo-ngay-${tag}.csv`);
+        const rs = $('#dhreset');
+        if (rs) rs.onclick = async () => {
+          const scope = DH.classId || null, ten = scope ? (classes.find((c) => c.id === scope)?.name || 'lớp này') : 'TOÀN HỆ THỐNG';
+          let pre; try { pre = await A.rpc('admin_reset_study_stats', { p_class_id: scope, p_dry_run: true }); }
+          catch (e) { return SL.toast(A.toApiError(e).message); }
+          ui.form('Đặt lại số liệu về 0', `<p>Sẽ xoá số liệu học tập của <b>${esc(ten)}</b>:</p>
+            <ul><li><b>${pre.students}</b> học sinh</li><li><b>${pre.sessions}</b> buổi học đã ghi (giờ đã học về 0)</li>
+            <li><b>${pre.progress}</b> bài đang làm hoặc đã xong (về <b>chưa làm</b>)</li><li><b>${pre.overload}</b> dòng trạng thái quá tải</li></ul>
+            <p>Bài đã giao, lớp, môn học và tài khoản <b>giữ nguyên</b>. Thao tác này <b>không khôi phục được</b>.</p>
+            <form><label>Gõ <b>XOA</b> để xác nhận</label><input name="ok" autocomplete="off" placeholder="XOA" required></form>`,
+            'Đặt lại về 0', async (root) => {
+              const v = root.querySelector('[name=ok]').value.trim().toUpperCase();
+              if (v !== 'XOA') throw new A.ApiError('validation', 'Hãy gõ đúng chữ XOA để xác nhận.');
+              await A.rpc('admin_reset_study_stats', { p_class_id: scope, p_dry_run: false });
+              draw();
+            }, 'Đã đặt số liệu về 0.');
+        };
       });
     };
     draw();

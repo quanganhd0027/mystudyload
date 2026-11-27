@@ -1,0 +1,1 @@
+-- Đã áp dụng: admin_reset_study_stats(uuid, boolean) — admin đặt lại giờ học, tiến độ bài, trạng thái quá tải.

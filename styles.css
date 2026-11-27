@@ -359,3 +359,6 @@ html:not([data-theme=dark]) .side-note{border-top:1px solid var(--line);color:va
 @media(max-width:700px){.today-sum{text-align:left}}
 /* nếu thẻ nhắc hằng ngày đang hiện thì đẩy chồng thông báo lên trên cho khỏi che nhau */
 body:has(.daily-pop) #notePop{bottom:232px}
+/* thẻ đặt lại số liệu: viền đỏ cho dễ nhận ra là thao tác xoá */
+.card.dz{border:1.5px solid #f0c9c5}
+.card.dz h2{color:var(--red)}
