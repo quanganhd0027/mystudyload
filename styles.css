@@ -362,3 +362,100 @@ body:has(.daily-pop) #notePop{bottom:232px}
 /* thẻ đặt lại số liệu: viền đỏ cho dễ nhận ra là thao tác xoá */
 .card.dz{border:1.5px solid #f0c9c5}
 .card.dz h2{color:var(--red)}
+
+/* ===== v6: giao diện điện thoại ===== */
+@media(max-width:760px){
+  :root{--mnav:60px}
+
+  /* thanh điều hướng xuống đáy màn hình, vừa tầm ngón tay */
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;z-index:60;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));
+    background:#fff;border:0;border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.07)}
+  html[data-theme=dark] .sidebar{background:var(--card)}
+  .sidebar .logo,.sidebar .side-note,.sidebar #sideAv{display:none}
+  #nav{display:flex;flex-direction:row;gap:4px;overflow-x:auto;overflow-y:hidden;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  #nav::-webkit-scrollbar{display:none}
+  #nav button{flex:1 0 auto;min-width:76px;min-height:48px;justify-content:center;text-align:center;
+    border-radius:12px;font-size:12px;line-height:1.25;padding:6px 10px;white-space:nowrap}
+
+  /* đầu trang gọn lại, dính khi cuộn */
+  .main{min-height:auto;padding-bottom:calc(var(--mnav) + env(safe-area-inset-bottom,0px) + 12px)}
+  .topbar{position:sticky;top:0;z-index:50;align-items:center;gap:10px;
+    padding:10px 0;margin-bottom:4px;background:var(--bg);border-bottom:1px solid var(--line)}
+  .topbar h1{font-size:19px;margin:0}
+  .topbar #subtitle{display:none}
+  .top-actions{gap:8px;flex-wrap:nowrap}
+  .top-actions #saveChip{display:none}
+  .top-actions #quickAdd{white-space:nowrap;padding:9px 12px;font-size:13px}
+
+  /* nhãn phiên bản: nhỏ, nép góc, không đè lên chữ */
+  #verTag{left:8px;right:auto;top:auto;bottom:calc(var(--mnav) + env(safe-area-inset-bottom,0px) + 8px);
+    font-size:10px;padding:2px 7px;opacity:.75}
+
+  /* các thẻ nổi nằm trên thanh điều hướng */
+  .fab-box{bottom:calc(var(--mnav) + env(safe-area-inset-bottom,0px) + 10px)}
+  #notePop{bottom:calc(var(--mnav) + env(safe-area-inset-bottom,0px) + 74px)!important;
+    left:12px!important;right:12px!important;width:auto!important}
+  .daily-pop{bottom:calc(var(--mnav) + env(safe-area-inset-bottom,0px) + 74px);left:12px;right:12px;max-width:none}
+  body:has(.daily-pop) #notePop{bottom:calc(var(--mnav) + env(safe-area-inset-bottom,0px) + 230px)!important}
+
+  /* việc hôm nay: môn + tên một hàng, nút kéo hết bề ngang */
+  .today-card{padding:var(--s4)}
+  .today-title{font-size:20px}
+  .today-row{flex-wrap:wrap;gap:8px;padding:10px 12px}
+  .today-subj{order:1;flex:none}
+  .today-main{order:2;flex:1 1 55%;min-width:0}
+  .today-name{font-size:15px}
+  .today-act{order:3;flex:1 1 100%}
+  .today-act button{width:100%;min-height:42px}
+
+  /* thẻ nhiệm vụ: chữ nhỏ lại, nút xếp đều nhau */
+  .item-meta{font-size:12.5px;line-height:1.5}
+  .item .actions,.actions{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .item .actions>button,.actions>button{width:100%;min-height:42px;font-size:13px}
+  .item .actions>button:only-child,.actions>button:nth-child(3):last-child{grid-column:1/-1}
+
+  /* ô lọc: mỗi thứ một hàng cho dễ bấm */
+  .section-head .row{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .section-head .row>input{grid-column:1/-1}
+  .section-head .row>input,.section-head .row>select,.section-head .row>button{width:100%;min-height:42px}
+
+  /* lịch khối lượng: kéo ngang thay vì bóp chữ */
+  .cal-main{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .cal-legend{width:100%}
+
+  /* cửa sổ bật lên: cao hơn, nút to hơn */
+  .modal{max-height:88vh;border-radius:16px 16px 0 0}
+  .modal button{min-height:42px}
+}
+/* v6b: đầu trang trên điện thoại nằm gọn một hàng */
+@media(max-width:760px){
+  .topbar{display:flex;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:10px}
+  .topbar>div:first-child{flex:1 1 auto;min-width:0;text-align:left}
+  .topbar h1{text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .top-actions{display:flex;width:auto;flex:0 0 auto;align-items:center}
+}
+/* v6c: thanh mục con và thanh công cụ trên điện thoại */
+@media(max-width:760px){
+  .subtabs{display:flex;flex-wrap:nowrap;gap:4px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .subtabs::-webkit-scrollbar{display:none}
+  .subtabs button{flex:0 0 auto;white-space:nowrap;min-height:42px}
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px}
+  .toolbar>select,.toolbar>input{flex:1 1 100%;min-width:0;min-height:42px}
+  .toolbar>button{flex:1 1 calc(50% - 4px);min-height:42px}
+  .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+}
+/* v6d: màn hình đăng nhập trên điện thoại */
+@media(max-width:760px){
+  .auth-brand{min-height:0;padding:20px 20px 22px}
+  .auth-brand h1,.auth-brand h2{font-size:24px;line-height:1.25}
+  .auth-decoration{display:none}
+  .auth-card{padding:20px 18px calc(24px + env(safe-area-inset-bottom,0px))}
+  .auth-card input,.auth-card select,.auth-submit,.auth-card button{min-height:46px;font-size:16px}
+}
+/* v6e: ở màn hình đăng nhập không có thanh dưới nên nhãn nép sát đáy */
+@media(max-width:760px){
+  body:has(#authRoot:not(.hidden)) #verTag{bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+}
