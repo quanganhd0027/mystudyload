@@ -389,8 +389,8 @@
       items.splice(0, items.length, ...items.filter(([p]) => !hide.has(p)));
       items.splice(1, 0, ["users", "☰ Người dùng"], ["adminclasses", "⌂ Lớp học (Admin)"], ["subjects", "✎ Môn học"], ["audit", "⛨ Nhật ký kiểm toán"], ["switchacct", "⇄ Đổi tài khoản"]);
       const qa = $("#quickAdd"); if (qa) qa.classList.add("hidden");
-    } else { const qa = $("#quickAdd"); if (qa) { // học sinh không tự tạo nhiệm vụ nữa: chỉ giáo viên mới có nút này
-        if (isStudent()) qa.classList.add("hidden");
+    } else { const qa = $("#quickAdd"); if (qa) { // học sinh thường không tạo nhiệm vụ; cán bộ lớp và giáo viên thì giao bài được
+        if (isStudent() && !liteOfficer) qa.classList.add("hidden");
         else { qa.classList.remove("hidden"); qa.textContent = "+ Giao bài"; } } }
     // Rút gọn menu: Thư viện chỉ là bản demo → ẩn với mọi vai trò (mã trang vẫn còn)
     { const hideAll = new Set();
@@ -2525,8 +2525,8 @@
     }
   });
   $("#quickAdd").onclick = () => {
-    if (isStudent()) openTask();
-    else SL.assignPick(); // giáo viên: chọn lớp rồi giao
+    if (isStudent() && !liteOfficer) return; // học sinh thường: không có nút này
+    SL.assignPick(); // cán bộ lớp và giáo viên: chọn lớp rồi giao
   };
   $("#profileButton").addEventListener("click", () => { page = "profile"; render(); });
   $("#saveChip").addEventListener("click", () => { if (A.sync.status === "error") A.sync.retry(); });
