@@ -1,0 +1,1 @@
+-- Đã áp dụng: teacher_add_student / teacher_remove_class_member / teacher_search_students cho phép cán bộ lớp (has_main_officer_role).
