@@ -459,3 +459,56 @@ body:has(.daily-pop) #notePop{bottom:232px}
 @media(max-width:760px){
   body:has(#authRoot:not(.hidden)) #verTag{bottom:calc(10px + env(safe-area-inset-bottom,0px))}
 }
+
+/* ===== v7: sửa bố cục điện thoại theo góp ý ===== */
+@media(max-width:760px){
+  /* 1. tên trang thụt vào bằng với các thẻ bên dưới */
+  .topbar{padding:10px var(--s4)}
+  .content{padding:var(--s4) var(--s4) var(--s2)}
+
+  /* 2. việc hôm nay gọn lại: môn và tên cùng hàng, mỗi việc chỉ cao bằng 1/3 trước */
+  .today-card{padding:var(--s4) var(--s3)}
+  .today-head{margin-bottom:6px}
+  .today-title{font-size:18px}
+  .today-kicker{font-size:11px}
+  .today-sum b{font-size:19px}
+  .today-list{gap:6px}
+  .today-row{flex-wrap:wrap;gap:6px 8px;padding:9px 10px;align-items:center;
+    border-left:4px solid var(--brand)}
+  .today-row.fin{border-left-color:var(--line)}
+  .today-subj{order:1;flex:0 1 auto;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:11px;padding:3px 9px}
+  .today-main{order:2;flex:1 1 40%;min-width:0}
+  .today-name{font-size:14.5px;line-height:1.3}
+  .today-meta{font-size:11.5px}
+  .today-act{order:3;flex:1 1 100%;margin-top:2px}
+  .today-act button{width:100%;min-height:36px;font-size:13px;padding:6px 10px}
+
+  /* 3. lịch khối lượng kéo hết bề ngang thẻ */
+  .cal-layout{align-items:stretch}
+  .cal-main{width:100%;flex:1 1 auto;overflow-x:visible}
+  .ld-row{width:100%}
+  .ld-col{padding:6px 5px;font-size:11px}
+  .ld-bar{font-size:10.5px;height:20px;line-height:20px}
+
+  /* 4. điểm nhấn: thẻ hôm nay nổi hơn, thanh tiến độ rõ hơn */
+  .today-card{box-shadow:0 10px 28px rgba(234,88,12,.12)}
+  .today-card .today-bar{height:10px;background:#fde5d3}
+  .today-card .today-bar i{background:linear-gradient(90deg,#fb923c,#ea580c)}
+  .hello-banner{box-shadow:0 10px 26px rgba(234,88,12,.22)}
+  #nav button.active{box-shadow:inset 0 -3px 0 var(--brand)}
+
+  /* 5. thẻ thông báo và nút nổi nhỏ lại khoảng 80% */
+  #notePop .note-pop.asg{padding:12px 34px 13px 13px;border-left-width:6px}
+  #notePop .note-pop.asg em{font-size:9.5px;padding:2px 8px;margin-bottom:6px}
+  #notePop .note-pop.asg b{font-size:15px}
+  #notePop .note-pop.asg span{font-size:12.5px}
+  #notePop .note-pop.asg .go{padding:7px;font-size:12.5px;margin-top:9px}
+  #notePop .note-pop{padding:11px 32px 12px 12px;font-size:12.5px}
+  #notePop .note-pop b{font-size:14px}
+  .daily-pop{padding:12px 13px;font-size:13px}
+  .daily-pop b{font-size:14px}
+  .daily-pop button{min-height:34px;font-size:12.5px;padding:5px 12px}
+  .fab-box{gap:6px}
+  .fab{min-height:34px;padding:0 11px;font-size:12px}
+}
