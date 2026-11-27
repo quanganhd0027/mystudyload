@@ -72,7 +72,7 @@ function ensureStack() {
     + '.note-pop b{display:block;font-size:14px;margin-bottom:3px}.note-pop span{display:block;font-size:13px;line-height:1.45;color:#4a5670;white-space:pre-wrap;overflow-wrap:anywhere}'
     + '.note-pop button.nx{position:absolute;top:6px;right:6px;width:26px;height:26px;padding:0;border-radius:50%;background:#edf0f7;color:#3e4961;font-size:16px;line-height:1;font-weight:700}'
     + '.note-pop i{position:absolute;left:0;bottom:0;height:3px;background:var(--c);width:100%;transform-origin:left;animation:notebar ' + POPUP_MS + 'ms linear forwards}'
-    + '.note-pop.asg{width:min(400px,calc(100vw - 36px));justify-self:end;background:#fff7ed;border:2px solid #ea580c;border-left:8px solid #ea580c;padding:16px 42px 18px 16px;box-shadow:0 16px 48px #ea580c55,0 4px 14px #0003;animation:notein .35s ease-out,notepulse 1.6s ease-in-out 3}'
+    + '.note-pop.asg{width:100%;background:#fff7ed;border:2px solid #ea580c;border-left:8px solid #ea580c;padding:16px 42px 18px 16px;box-shadow:0 16px 48px #ea580c55,0 4px 14px #0003;animation:notein .35s ease-out,notepulse 1.6s ease-in-out 3}'
     + '.note-pop.asg em{display:inline-block;font-style:normal;font-size:11px;font-weight:800;letter-spacing:.08em;color:#fff;background:#ea580c;border-radius:99px;padding:3px 10px;margin-bottom:8px}'
     + '.note-pop.asg b{font-size:18px;color:#9a3412;margin-bottom:4px}.note-pop.asg span{font-size:14px;color:#7c2d12;font-weight:600}'
     + '.note-pop.asg .go{display:block;margin-top:12px;width:100%;background:#ea580c;color:#fff;border:0;border-radius:10px;padding:9px;font-weight:700;font-size:14px;cursor:pointer}'
@@ -94,7 +94,7 @@ function showPopup(n) {
   ensureStack().appendChild(el);
 }
 async function poll() {
-  if (polling || !SL.profile?.()) return; polling = true;
+  if (polling || !SL.profile?.() || document.querySelector('#authRoot')) return; polling = true;
   try {
     const rows = await A.rpc('my_notifications', { p_limit: 20 }), seen = seenSet();
     const fresh = (rows || []).filter((n) => !n.read_at && !seen.has(n.id) && Date.now() - new Date(n.created_at).getTime() < 86400000).reverse().slice(-5);
@@ -105,7 +105,10 @@ async function poll() {
 }
 function startPopups() {
   if (pollTimer) return; poll();
-  pollTimer = setInterval(() => { if (document.visibilityState === 'visible') poll(); }, POLL_MS);
+  pollTimer = setInterval(() => {
+    if (!SL.profile?.() || document.querySelector('#authRoot')) { if (popStack) popStack.innerHTML = ''; return; }
+    if (document.visibilityState === 'visible') poll();
+  }, POLL_MS);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') poll(); });
 }
 if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { if (e.data && e.data.type === 'note') poll(); });
